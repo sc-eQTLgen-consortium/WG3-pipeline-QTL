@@ -5,7 +5,7 @@ These instructions are not frozen yet and will/can be uppdated as the analyses c
 
 We exepect for each of the datasets that the pipelines in WG1 and WG2 are ran and QC has be done.
 
-*_See the [wiki](https://github.com/sc-eQTLgen-consortium/WG3-pipeline-QTL/wiki) for more detailed instructions on the steps._*
+**_See the [wiki](https://github.com/sc-eQTLgen-consortium/WG3-pipeline-QTL/wiki) for more detailed instructions on the steps._**
 
 
 Please find the most recent version of the eQTL mapping software we used [here](https://github.com/single-cell-genetics/limix_qtl/wiki).
