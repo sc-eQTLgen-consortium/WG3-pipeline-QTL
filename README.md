@@ -10,6 +10,8 @@ We exepect for each of the datasets that the pipelines in WG1 and WG2 are ran an
 
 Please find the most recent version of the eQTL mapping software we used [here](https://github.com/single-cell-genetics/limix_qtl/wiki).
 
+
+
 ##General overview of the steps.
 
 #For each dataset at the contributor site (DS):
@@ -25,7 +27,7 @@ DS.4) perform an eQTL analysis within each dataset, using LIMIX pipeline (https:
 DS.5) Upload information to the central side for the central analysis.
 
 
-At the central analysis (CS):
+#At the central analysis (CS):
 
 CA.1) collect summary statistics for step 3 at central site (per cell type and per dataset maximally 300 million cis-eQTLs sumtats + 40,000 permutation summary statistics, when using 20,000 genes)
 
