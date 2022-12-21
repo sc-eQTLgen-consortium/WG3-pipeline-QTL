@@ -1,1 +1,12 @@
+####################################################################################
+###### The following arguments are for indicating file locations on your system #####
+#####################################################################################
 
+output_dir: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg1-preprocessing/wg1_blokland2020/LD/wp3_output/ ### This is the path to the directory where you want the outputs to be saved
+
+WG1_folder:  ### The path to the outputs from WG1
+WG2_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg1-preprocessing/wg1_wijst2020/ ### The path to the outputs from WG2
+image_folder: /groups/umcg-franke-scrna/tmp01/users/umcg-mjbonder/ ### The path to the folder within which the simgularity image "limixDec22.simg" is located
+unimputed_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg1-preprocessing/wg1_wijst2018/genotype/unimputed/cytosnp_all_ng2018 ### The path to the unimputed genotype file
+
+top_dir: /groups/umcg-franke-scrna/tmp01/ ### The path to a directory where all other directories (assigned above) fall beneath
