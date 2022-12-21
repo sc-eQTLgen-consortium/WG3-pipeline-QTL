@@ -21,7 +21,8 @@ top_dir: /groups/umcg-franke-scrna/tmp01/ ### The path to a directory where all 
 #####################################
 ###### Expression related paths #####
 #####################################
-qc_filter_final = 'qc_mad_final.tab'
+qc_input = ''
+qc_output = ''
 wg1SingletsAssigned = ''
 wg1_wg2_summarized_Metadata = ''
 expression_dir = '/groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/'
