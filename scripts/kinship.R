@@ -1,6 +1,6 @@
 args = commandArgs(trailingOnly=TRUE)
 
-n = read.delim(args[1],header=F)
+kin = read.delim(args[1],header=F)
 
 kinIds = read.delim(args[2])
 
