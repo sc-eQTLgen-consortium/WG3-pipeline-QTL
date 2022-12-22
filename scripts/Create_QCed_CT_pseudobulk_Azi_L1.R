@@ -112,6 +112,7 @@ if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
   
   ##Filter to 10 cells minimum.
   cellCount = unlist(cellcount)
+  write.table(cellCount,paste0(opt$out_dir,"/cellCounts.txt"),quote=F,sep="\t",col.names=NA)
   aggregate_countMatrix = aggregate_countMatrix[,which(colnames(aggregate_countMatrix) %in% names(which(cellCount>9)))]
   ##Split per L1 cell type
   ctList = unique(unlist(lapply(strsplit(colnames(aggregate_countMatrix),split=";;"),'[[',1)))
