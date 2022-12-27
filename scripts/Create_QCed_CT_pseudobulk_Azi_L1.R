@@ -66,75 +66,149 @@ print(all(colnames(pbmc)==pbmcMetaD$Barcode))
 if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
   pbmc@meta.data = pbmcMetaD
   
-  ## grab the countmatrix
-  countMatrix <- GetAssayData(pbmc, slot = "counts")
-  countMatrix = countMatrix[which(rowSums(countMatrix)!=0),]
-  IDs = pbmc@meta.data$CT_Donor
-  unique_ID_list = unique(pbmc@meta.data$CT_Donor)
-  
-  # Info
-  n_cells <- ncol(countMatrix)
-  n_genes <- nrow(countMatrix)
-  print(paste0('Calculating pseudo-bulk expression matrix using: ', aggregate_fun))
-  print(paste0('   ### n_cells: ', n_cells))
-  print(paste0('   ### n_genes (sc-data): ', n_genes))
-  cat('\n')
-
-  print('Normalizing the sc-data..')
-  cat('\n')
-  
-  # PF
-  sampleSumInfo = colSums(countMatrix)
-  meanSampleSum = mean(sampleSumInfo)
-  sampleScale = sampleSumInfo/meanSampleSum
-  
-  # Scale to match meanRowSums
-  system.time(countMatrix <- sweep(countMatrix, 2, sampleScale, FUN="/")) #divide each column by sampleScale
-  
-  # Log
-  countMatrix = log(countMatrix+1)
-  
-  # PF
-  sampleSumInfo = colSums(countMatrix)
-  meanSampleSum = mean(sampleSumInfo)
-  sampleScale = sampleSumInfo/meanSampleSum
-  
-  # Scale to match meanRowSums
-  system.time(countMatrix <- sweep(countMatrix, 2, sampleScale, FUN="/")) #divide each column by sampleScale
-  
-  print('Aggregating count matrix using lapply + textTinyR::sparse_Means() ...')
-  countMatrix <- as(countMatrix, "dgCMatrix")
-  
-  system.time(aggregate_countMatrix <- as.data.frame(pblapply(unique_ID_list, FUN = function(x){sparse_Means(countMatrix[,IDs == x, drop = FALSE], rowMeans = TRUE)})))
-  cellcount <- pblapply(unique_ID_list, FUN = function(x){ncol(countMatrix[,IDs == x, drop = FALSE])})
-  colnames(aggregate_countMatrix) <- names(cellcount) <- unique_ID_list
-  rownames(aggregate_countMatrix) <- rownames(countMatrix)
-  
-  ##Filter to 10 cells minimum.
-  cellCount = unlist(cellcount)
-  write.table(cellCount,paste0(opt$out_dir,"/cellCounts.txt"),quote=F,sep="\t",col.names=NA)
-  aggregate_countMatrix = aggregate_countMatrix[,which(colnames(aggregate_countMatrix) %in% names(which(cellCount>9)))]
-  ##Split per L1 cell type
-  ctList = unique(unlist(lapply(strsplit(colnames(aggregate_countMatrix),split=";;"),'[[',1)))
+  cellCts = pbmc$predicted.celltype.l1
+  ctList = unique(cellCts)
   for(ct in ctList){
-    ##select relevant columns
-    selMatrix = aggregate_countMatrix[,grep(ct,colnames(aggregate_countMatrix))]
-    colnames(selMatrix) = unlist(lapply(strsplit(colnames(selMatrix),split=";;"),'[[',2))
-    if(ncol(selMatrix)>15){
+    pbmcSplit = pbmc[,which(cellCts == ct)]
+    
+    ## grab the countmatrix
+    countMatrix <- GetAssayData(pbmcSplit, slot = "counts")
+    countMatrix = countMatrix[which(rowSums(countMatrix)!=0),]
+    IDs = pbmc@meta.data$Assignment[which(cellCts == ct)]
+    unique_ID_list = unique(IDs)
+    
+    # Info
+    n_cells <- ncol(countMatrix)
+    n_genes <- nrow(countMatrix)
+    print(paste0('Calculating pseudo-bulk for ',ct,' expression matrix using: ', aggregate_fun))
+    print(paste0('   ### n_cells: ', n_cells))
+    print(paste0('   ### n_genes (sc-data): ', n_genes))
+    cat('\n')
+    
+    
+  
+    # PF
+    sampleSumInfo = colSums(countMatrix)
+    meanSampleSum = mean(sampleSumInfo)
+    sampleScale = sampleSumInfo/meanSampleSum
+    
+    # Scale to match meanRowSums
+    system.time(countMatrix <- sweep(countMatrix, 2, sampleScale, FUN="/")) #divide each column by sampleScale
+    
+    # Log
+    countMatrix = log(countMatrix+1)
+    
+    # PF
+    sampleSumInfo = colSums(countMatrix)
+    meanSampleSum = mean(sampleSumInfo)
+    sampleScale = sampleSumInfo/meanSampleSum
+  
+    # Scale to match meanRowSums
+    system.time(countMatrix <- sweep(countMatrix, 2, sampleScale, FUN="/")) #divide each column by sampleScale
+  
+    print('Aggregating count matrix using lapply + textTinyR::sparse_Means() ...')
+    countMatrix <- as(countMatrix, "dgCMatrix")
+  
+    system.time(aggregate_countMatrix <- as.data.frame(pblapply(unique_ID_list, FUN = function(x){sparse_Means(countMatrix[,IDs == x, drop = FALSE], rowMeans = TRUE)})))
+    cellCount <- pblapply(unique_ID_list, FUN = function(x){ncol(countMatrix[,IDs == x, drop = FALSE])})
+    colnames(aggregate_countMatrix) <- names(cellCount) <- unique_ID_list
+    rownames(aggregate_countMatrix) <- rownames(countMatrix)
+    
+    cellCount = unlist(cellCount)
+    aggregate_countMatrix = aggregate_countMatrix[,which(colnames(aggregate_countMatrix) %in% names(which(cellCount>9)))]
+    ##Split per L1 cell type
+    
+    if(ncol(aggregate_countMatrix)>15){
       print(paste0("Writing: ",ct))
       ##Drop rows that are not varying, which will include genes that are only zero.
-      rowVarInfo = rowVars(as.matrix(selMatrix))
-      selMatrix = selMatrix[which(rowVarInfo!=0),]
+      rowVarInfo = rowVars(as.matrix(aggregate_countMatrix))
+      aggregate_countMatrix = aggregate_countMatrix[which(rowVarInfo!=0),]
       ## Do inverse normal transform per gene.
-      for(rN in 1:nrow(selMatrix)){
-         selMatrix[rN,] = qnorm((rank(selMatrix[rN,],na.last="keep")-0.5)/sum(!is.na(selMatrix[rN,])))
+      for(rN in 1:nrow(aggregate_countMatrix)){
+         aggregate_countMatrix[rN,] = qnorm((rank(aggregate_countMatrix[rN,],na.last="keep")-0.5)/sum(!is.na(aggregate_countMatrix[rN,])))
       }
       ##Do PCA, and select first 10 components.
-      pcOut = prcomp(t(selMatrix))
+      pcOut = prcomp(t(aggregate_countMatrix))
       covOut = pcOut$x[,1:10]
       ##Write out PCs and input matrix for QTL.
-      write.table(selMatrix,paste0(opt$out_dir,"/",ct,".inputExpression.txt"),quote=F,sep="\t",col.names=NA)
+      write.table(aggregate_countMatrix,paste0(opt$out_dir,"/",ct,".inputExpression.txt"),quote=F,sep="\t",col.names=NA)
       write.table(covOut,paste0(opt$out_dir,"/",ct,".covariates.txt"),quote=F,sep="\t",col.names=NA)
     }
   }
 }
+
+##########Original
+#if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
+#  pbmc@meta.data = pbmcMetaD
+#  
+#  ## grab the countmatrix
+#  countMatrix <- GetAssayData(pbmc, slot = "counts")
+#  countMatrix = countMatrix[which(rowSums(countMatrix)!=0),]
+#  IDs = pbmc@meta.data$CT_Donor
+#  unique_ID_list = unique(pbmc@meta.data$CT_Donor)
+#  
+#  # Info
+#  n_cells <- ncol(countMatrix)
+#  n_genes <- nrow(countMatrix)
+#  print(paste0('Calculating pseudo-bulk expression matrix using: ', aggregate_fun))
+#  print(paste0('   ### n_cells: ', n_cells))
+#  print(paste0('   ### n_genes (sc-data): ', n_genes))
+#  cat('\n')#
+#
+#  print('Normalizing the sc-data..')
+#  cat('\n')
+#  
+#  # PF
+#  sampleSumInfo = colSums(countMatrix)
+#  meanSampleSum = mean(sampleSumInfo)
+#  sampleScale = sampleSumInfo/meanSampleSum
+#  
+#  # Scale to match meanRowSums
+#  system.time(countMatrix <- sweep(countMatrix, 2, sampleScale, FUN="/")) #divide each column by sampleScale
+#  
+#  # Log
+#  countMatrix = log(countMatrix+1)
+#  
+#  # PF
+#  sampleSumInfo = colSums(countMatrix)
+#  meanSampleSum = mean(sampleSumInfo)
+#  sampleScale = sampleSumInfo/meanSampleSum
+#  
+#  # Scale to match meanRowSums
+#  system.time(countMatrix <- sweep(countMatrix, 2, sampleScale, FUN="/")) #divide each column by sampleScale
+#  
+#  print('Aggregating count matrix using lapply + textTinyR::sparse_Means() ...')
+#  countMatrix <- as(countMatrix, "dgCMatrix")
+#  
+#  system.time(aggregate_countMatrix <- as.data.frame(pblapply(unique_ID_list, FUN = function(x){sparse_Means(countMatrix[,IDs == x, drop = FALSE], rowMeans = TRUE)})))
+#  cellcount <- pblapply(unique_ID_list, FUN = function(x){ncol(countMatrix[,IDs == x, drop = FALSE])})
+#  colnames(aggregate_countMatrix) <- names(cellcount) <- unique_ID_list
+#  rownames(aggregate_countMatrix) <- rownames(countMatrix)
+#  
+#  ##Filter to 10 cells minimum.
+#  cellCount = unlist(cellcount)
+#  aggregate_countMatrix = aggregate_countMatrix[,which(colnames(aggregate_countMatrix) %in% names(which(cellCount>9)))]
+#  ##Split per L1 cell type
+#  ctList = unique(unlist(lapply(strsplit(colnames(aggregate_countMatrix),split=";;"),'[[',1)))
+#  for(ct in ctList){
+#    ##select relevant columns
+#    selMatrix = aggregate_countMatrix[,grep(ct,colnames(aggregate_countMatrix))]
+#    colnames(selMatrix) = unlist(lapply(strsplit(colnames(selMatrix),split=";;"),'[[',2))
+#    if(ncol(selMatrix)>15){
+#      print(paste0("Writing: ",ct))
+#      ##Drop rows that are not varying, which will include genes that are only zero.
+#      rowVarInfo = rowVars(as.matrix(selMatrix))
+#      selMatrix = selMatrix[which(rowVarInfo!=0),]
+#      ## Do inverse normal transform per gene.
+#      for(rN in 1:nrow(selMatrix)){
+#         selMatrix[rN,] = qnorm((rank(selMatrix[rN,],na.last="keep")-0.5)/sum(!is.na(selMatrix[rN,])))
+#      }
+#      ##Do PCA, and select first 10 components.
+#      pcOut = prcomp(t(selMatrix))
+#      covOut = pcOut$x[,1:10]
+#      ##Write out PCs and input matrix for QTL.
+#      write.table(selMatrix,paste0(opt$out_dir,"/",ct,".inputExpression.txt"),quote=F,sep="\t",col.names=NA)
+#      write.table(covOut,paste0(opt$out_dir,"/",ct,".covariates.txt"),quote=F,sep="\t",col.names=NA)
+#    }
+#  }
+#}
