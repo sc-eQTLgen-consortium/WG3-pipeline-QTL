@@ -8,6 +8,8 @@ option_list = list(
               help="WG1 seurat object out (singlets and filtered)."),
   make_option(c("--metadata"), action="store", default=NA, type='character',
               help="MAD filter and donor annotation information."),
+    make_option(c("--wg1_psam"), action="store", default=NA, type='character',
+              help="psam file created in WG1."),
   make_option(c("--cell_level"), action="store", default="l1", type='character',
               help="Azimuth l1 or l2."),
   make_option(c("--aggregate_fun"), action="store", default='mean', type='character',
@@ -27,7 +29,8 @@ shhh(library(pbapply))
 
 # Report
 print(paste0('input1: ', opt$wg1_data))
-print(paste0('input2: ', opt$metadata))
+print(paste0('input2: ', opt$wg1_psam))
+print(paste0('input3: ', opt$metadata))
 print(paste0('Azimuth level: ', opt$cell_level))
 print(paste0('Aggegate function: ', opt$aggregate_fun))
 cat('\n\n')
@@ -35,13 +38,20 @@ cat('\n\n')
 #################### Read data ####################
 # Seurat object
 pbmc_fn <- opt$wg1_data
-print(paste0('Reading pbmc seurat object file in: ',pbmc_fn))
+print(paste0('Reading seurat object: ',pbmc_fn))
 system.time(pbmc <- readRDS(pbmc_fn))
 
+# Seurat object
+pbmc_psam_fn <- opt$wg1_psam
+print(paste0('Reading psam info: ',pbmc_psam_fn))
+system.time(psamMetaD <- read.delim(pbmc_psam_fn,as.is=T,check.names=F))
+
 # metadata object
-pbmcMD_fd <- opt$metadata
-print(paste0('Reading pbmc metadata object file in: ',pbmcMD_fd))
-system.time(pbmcMetaD <- readRDS(pbmcMD_fd))
+pbmc_metadata_fn <- opt$metadata
+print(paste0('Reading pbmc WG1-WG2 metadata: ',pbmc_metadata_fn))
+system.time(pbmcMetaD <- readRDS(pbmc_metadata_fn))
+
+rm(pbmc_fn,pbmc_metadata_fn,pbmc_psam_fn)
 
 #Filtering to cells to keep.
 pbmcMetaD  = pbmcMetaD[which(pbmcMetaD$tag=="NotOutlier"),]
@@ -53,9 +63,15 @@ pbmc = pbmc[,which(colnames(pbmc) %in% pbmcMetaD$Barcode)]
 
 pbmc = pbmc[,order(colnames(pbmc))]
 pbmcMetaD = pbmcMetaD[match(colnames(pbmc),pbmcMetaD$Barcode),]
-pbmcMetaD = cbind(pbmcMetaD,paste0(pbmcMetaD$predicted.celltype.l1,";;",pbmcMetaD$Assignment))
-colnames(pbmcMetaD)[ncol(pbmcMetaD)] ="CT_Donor"
+pbmcMetaD = cbind(pbmcMetaD,paste0(pbmcMetaD$predicted.celltype.l1,";;",pbmcMetaD$Pool,";;",pbmcMetaD$Assignment))
+colnames(pbmcMetaD)[ncol(pbmcMetaD)] ="CT_Pool_Donor"
 
+pbmcMetaD = cbind(pbmcMetaD,paste0(pbmcMetaD$Assignment,";;",pbmcMetaD$Pool))
+colnames(pbmcMetaD)[ncol(pbmcMetaD)] ="Donor_Pool"
+
+##Extend meta_data with info from psam.
+pbmcMetaD = cbind(pbmcMetaD,psamMetaD[match(pbmcMetaD$Assignment,psamMetaD$IID),])
+relCol = c("Donor_Pool",colnames(psamMetaD))
 aggregate_fun = opt$aggregate_fun
 
 if(aggregate_fun!='mean'){
@@ -63,152 +79,102 @@ if(aggregate_fun!='mean'){
   stop()
 }
 print(all(colnames(pbmc)==pbmcMetaD$Barcode))
+
+
 if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
   pbmc@meta.data = pbmcMetaD
-  
+  rm(pbmcMetaD,psamMetaD)
   cellCts = pbmc$predicted.celltype.l1
-  ctList = unique(cellCts)
+  ctList = unique(pbmc$predicted.celltype.l1)
+  
+  ##Temporary save Seurate object?
+  saveRDS(pbmc,paste0(opt$out_dir,"/tmpFiltered.Seurat.Rds"))
   for(ct in ctList){
-    pbmcSplit = pbmc[,which(cellCts == ct)]
+    if(is.null(pbmc)){
+      pbmc = readRDS(paste0(opt$out_dir,"/tmpFiltered.Seurat.Rds"))
+    }
+    ##Grab meta.data
+    meta.d.full = as.data.frame(pbmc@meta.data[which(cellCts == ct),])
+    meta.d = unique(meta.d.full[,which(colnames(meta.d.full) %in% relCol)])
+    ##Grab the countmatrix
+    countMatrixFull <- GetAssayData(pbmc[,which(cellCts == ct)], slot = "counts")
+    countMatrix = countMatrixFull[which(rowSums(countMatrixFull)!=0),]
+    ##Clean
+    pbmc=NULL
+    rm(countMatrixFull)
+    gc();
     
-    ## grab the countmatrix
-    countMatrix <- GetAssayData(pbmcSplit, slot = "counts")
-    countMatrix = countMatrix[which(rowSums(countMatrix)!=0),]
-    IDs = pbmc@meta.data$Assignment[which(cellCts == ct)]
+    IDs = meta.d$Donor_Pool
     unique_ID_list = unique(IDs)
     
+    normCountMatrix = countMatrix ##To store in the new object in.
+    
     # Info
-    n_cells <- ncol(countMatrix)
-    n_genes <- nrow(countMatrix)
     print(paste0('Calculating pseudo-bulk for ',ct,' expression matrix using: ', aggregate_fun))
-    print(paste0('   ### n_cells: ', n_cells))
-    print(paste0('   ### n_genes (sc-data): ', n_genes))
+    print(paste0('   ### n_cells: ', ncol(normCountMatrix)))
+    print(paste0('   ### n_genes (sc-data): ', nrow(normCountMatrix)))
     cat('\n')
     
-    
-  
     # PF
-    sampleSumInfo = colSums(countMatrix)
+    sampleSumInfo = colSums(normCountMatrix)
     meanSampleSum = mean(sampleSumInfo)
     sampleScale = sampleSumInfo/meanSampleSum
     
     # Scale to match meanRowSums
-    system.time(countMatrix <- sweep(countMatrix, 2, sampleScale, FUN="/")) #divide each column by sampleScale
+    system.time(normCountMatrix@x <- normCountMatrix@x / rep.int(sampleScale, diff(normCountMatrix@p))) #divide each column by sampleScale
     
     # Log
-    countMatrix = log(countMatrix+1)
+    normCountMatrix@x  = log(normCountMatrix@x +1)
     
     # PF
-    sampleSumInfo = colSums(countMatrix)
+    sampleSumInfo = colSums(normCountMatrix)
     meanSampleSum = mean(sampleSumInfo)
     sampleScale = sampleSumInfo/meanSampleSum
   
     # Scale to match meanRowSums
-    system.time(countMatrix <- sweep(countMatrix, 2, sampleScale, FUN="/")) #divide each column by sampleScale
-  
+    system.time(normCountMatrix@x <- normCountMatrix@x / rep.int(sampleScale, diff(normCountMatrix@p))) #divide each column by sampleScale
+    
+    ## Single cell object
+    print(paste0("Writing QC-ed and Normalized SC data: ",ct))
+    rownames(meta.d.full)=meta.d.full$Barcode
+    seuratObj <- CreateSeuratObject(countMatrix, assay = "RNA",meta.data = meta.d.full)
+    seuratObj[["data"]] = CreateAssayObject(data=normCountMatrix)
+    saveRDS(seuratObj,paste0(opt$out_dir,"/",ct,".Qced.Normalized.SCs.Rds"))
+    rm(seuratObj,meta.d.full,countMatrix)
+    gc();
+    
     print('Aggregating count matrix using lapply + textTinyR::sparse_Means() ...')
-    countMatrix <- as(countMatrix, "dgCMatrix")
+    ##normCountMatrix <- as(normCountMatrix, "dgCMatrix")
   
-    system.time(aggregate_countMatrix <- as.data.frame(pblapply(unique_ID_list, FUN = function(x){sparse_Means(countMatrix[,IDs == x, drop = FALSE], rowMeans = TRUE)})))
-    cellCount <- pblapply(unique_ID_list, FUN = function(x){ncol(countMatrix[,IDs == x, drop = FALSE])})
-    colnames(aggregate_countMatrix) <- names(cellCount) <- unique_ID_list
-    rownames(aggregate_countMatrix) <- rownames(countMatrix)
+    system.time(aggregate_normCountMatrix <- as.data.frame(pblapply(unique_ID_list, FUN = function(x){sparse_Means(normCountMatrix[,IDs == x, drop = FALSE], rowMeans = TRUE)})))
+    cellCount <- pblapply(unique_ID_list, FUN = function(x){ncol(normCountMatrix[,IDs == x, drop = FALSE])})
+    colnames(aggregate_normCountMatrix) <- names(cellCount) <- unique_ID_list
+    rownames(aggregate_normCountMatrix) <- rownames(normCountMatrix)
     
     cellCount = unlist(cellCount)
-    aggregate_countMatrix = aggregate_countMatrix[,which(colnames(aggregate_countMatrix) %in% names(which(cellCount>9)))]
-    ##Split per L1 cell type
+    aggregate_normCountMatrix = aggregate_normCountMatrix[,which(colnames(aggregate_normCountMatrix) %in% names(which(cellCount>9)))]
     
-    if(ncol(aggregate_countMatrix)>15){
-      print(paste0("Writing: ",ct))
+    print(paste0("Writing pseudo bulk data: ",ct))
+    ##Write out psuedo-bulk.
+    if(ncol(aggregate_normCountMatrix)>15){
       ##Drop rows that are not varying, which will include genes that are only zero.
-      rowVarInfo = rowVars(as.matrix(aggregate_countMatrix))
-      aggregate_countMatrix = aggregate_countMatrix[which(rowVarInfo!=0),]
+      rowVarInfo = rowVars(as.matrix(aggregate_normCountMatrix))
+      aggregate_normCountMatrix = aggregate_normCountMatrix[which(rowVarInfo!=0),]
       ## Do inverse normal transform per gene.
-      for(rN in 1:nrow(aggregate_countMatrix)){
-         aggregate_countMatrix[rN,] = qnorm((rank(aggregate_countMatrix[rN,],na.last="keep")-0.5)/sum(!is.na(aggregate_countMatrix[rN,])))
+      for(rN in 1:nrow(aggregate_normCountMatrix)){
+         aggregate_normCountMatrix[rN,] = qnorm((rank(aggregate_normCountMatrix[rN,],na.last="keep")-0.5)/sum(!is.na(aggregate_normCountMatrix[rN,])))
       }
       ##Do PCA, and select first 10 components.
-      pcOut = prcomp(t(aggregate_countMatrix))
+      pcOut = prcomp(t(aggregate_normCountMatrix))
       covOut = pcOut$x[,1:10]
       ##Write out PCs and input matrix for QTL.
-      write.table(aggregate_countMatrix,paste0(opt$out_dir,"/",ct,".inputExpression.txt"),quote=F,sep="\t",col.names=NA)
-      write.table(covOut,paste0(opt$out_dir,"/",ct,".covariates.txt"),quote=F,sep="\t",col.names=NA)
+      write.table(aggregate_normCountMatrix,paste0(opt$out_dir,"/",ct,".inputExpression.txt"),quote=F,sep="\t",col.names=NA)
+      write.table(covOut,paste0(opt$out_dir,"/",ct,".Pcs.txt"),quote=F,sep="\t",col.names=NA)
+      
+      ##Write covariates global covariates.
+      meta.d = cbind(meta.d,cellCount[match(meta.d$Donor_Pool,names(cellCount))]) ##Add cell numbers.
+      colnames(meta.d)[ncol(meta.d)]="CellCount" ##Fix nameing.
+      write.table(meta.d,paste0(opt$out_dir,"/",ct,".covariates.txt"),quote=F,sep="\t",row.names=F)
     }
   }
 }
-
-##########Original
-#if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
-#  pbmc@meta.data = pbmcMetaD
-#  
-#  ## grab the countmatrix
-#  countMatrix <- GetAssayData(pbmc, slot = "counts")
-#  countMatrix = countMatrix[which(rowSums(countMatrix)!=0),]
-#  IDs = pbmc@meta.data$CT_Donor
-#  unique_ID_list = unique(pbmc@meta.data$CT_Donor)
-#  
-#  # Info
-#  n_cells <- ncol(countMatrix)
-#  n_genes <- nrow(countMatrix)
-#  print(paste0('Calculating pseudo-bulk expression matrix using: ', aggregate_fun))
-#  print(paste0('   ### n_cells: ', n_cells))
-#  print(paste0('   ### n_genes (sc-data): ', n_genes))
-#  cat('\n')#
-#
-#  print('Normalizing the sc-data..')
-#  cat('\n')
-#  
-#  # PF
-#  sampleSumInfo = colSums(countMatrix)
-#  meanSampleSum = mean(sampleSumInfo)
-#  sampleScale = sampleSumInfo/meanSampleSum
-#  
-#  # Scale to match meanRowSums
-#  system.time(countMatrix <- sweep(countMatrix, 2, sampleScale, FUN="/")) #divide each column by sampleScale
-#  
-#  # Log
-#  countMatrix = log(countMatrix+1)
-#  
-#  # PF
-#  sampleSumInfo = colSums(countMatrix)
-#  meanSampleSum = mean(sampleSumInfo)
-#  sampleScale = sampleSumInfo/meanSampleSum
-#  
-#  # Scale to match meanRowSums
-#  system.time(countMatrix <- sweep(countMatrix, 2, sampleScale, FUN="/")) #divide each column by sampleScale
-#  
-#  print('Aggregating count matrix using lapply + textTinyR::sparse_Means() ...')
-#  countMatrix <- as(countMatrix, "dgCMatrix")
-#  
-#  system.time(aggregate_countMatrix <- as.data.frame(pblapply(unique_ID_list, FUN = function(x){sparse_Means(countMatrix[,IDs == x, drop = FALSE], rowMeans = TRUE)})))
-#  cellcount <- pblapply(unique_ID_list, FUN = function(x){ncol(countMatrix[,IDs == x, drop = FALSE])})
-#  colnames(aggregate_countMatrix) <- names(cellcount) <- unique_ID_list
-#  rownames(aggregate_countMatrix) <- rownames(countMatrix)
-#  
-#  ##Filter to 10 cells minimum.
-#  cellCount = unlist(cellcount)
-#  aggregate_countMatrix = aggregate_countMatrix[,which(colnames(aggregate_countMatrix) %in% names(which(cellCount>9)))]
-#  ##Split per L1 cell type
-#  ctList = unique(unlist(lapply(strsplit(colnames(aggregate_countMatrix),split=";;"),'[[',1)))
-#  for(ct in ctList){
-#    ##select relevant columns
-#    selMatrix = aggregate_countMatrix[,grep(ct,colnames(aggregate_countMatrix))]
-#    colnames(selMatrix) = unlist(lapply(strsplit(colnames(selMatrix),split=";;"),'[[',2))
-#    if(ncol(selMatrix)>15){
-#      print(paste0("Writing: ",ct))
-#      ##Drop rows that are not varying, which will include genes that are only zero.
-#      rowVarInfo = rowVars(as.matrix(selMatrix))
-#      selMatrix = selMatrix[which(rowVarInfo!=0),]
-#      ## Do inverse normal transform per gene.
-#      for(rN in 1:nrow(selMatrix)){
-#         selMatrix[rN,] = qnorm((rank(selMatrix[rN,],na.last="keep")-0.5)/sum(!is.na(selMatrix[rN,])))
-#      }
-#      ##Do PCA, and select first 10 components.
-#      pcOut = prcomp(t(selMatrix))
-#      covOut = pcOut$x[,1:10]
-#      ##Write out PCs and input matrix for QTL.
-#      write.table(selMatrix,paste0(opt$out_dir,"/",ct,".inputExpression.txt"),quote=F,sep="\t",col.names=NA)
-#      write.table(covOut,paste0(opt$out_dir,"/",ct,".covariates.txt"),quote=F,sep="\t",col.names=NA)
-#    }
-#  }
-#}
