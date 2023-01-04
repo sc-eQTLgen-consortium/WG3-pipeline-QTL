@@ -55,7 +55,7 @@ rm(pbmc_fn,pbmc_metadata_fn,pbmc_psam_fn)
 
 #Filtering to cells to keep.
 pbmcMetaD  = pbmcMetaD[which(pbmcMetaD$tag=="NotOutlier"),]
-pbmcMetaD  = pbmcMetaD[which(pbmcMetaD$predicted.celltype.l1 %in% c("CD4_T","Mono","CD8_T","NK","B","DC")),]
+pbmcMetaD  = pbmcMetaD[which(pbmcMetaD$predicted.celltype.l1 %in% c("CD4_T","Mono","CD8_T","NK","B","DC","other_T")),]
 
 #Make sure the entries match.
 pbmcMetaD  = pbmcMetaD[which(pbmcMetaD$Barcode %in% colnames(pbmc)),]
