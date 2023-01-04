@@ -160,6 +160,7 @@ if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
       ##Drop rows that are not varying, which will include genes that are only zero.
       rowVarInfo = rowVars(as.matrix(aggregate_normCountMatrix))
       aggregate_normCountMatrix = aggregate_normCountMatrix[which(rowVarInfo!=0),]
+      write.table(aggregate_normCountMatrix,paste0(opt$out_dir,"/",ct,".Exp.txt"),quote=F,sep="\t",col.names=NA)
       ## Do inverse normal transform per gene.
       for(rN in 1:nrow(aggregate_normCountMatrix)){
          aggregate_normCountMatrix[rN,] = qnorm((rank(aggregate_normCountMatrix[rN,],na.last="keep")-0.5)/sum(!is.na(aggregate_normCountMatrix[rN,])))
@@ -168,8 +169,8 @@ if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
       pcOut = prcomp(t(aggregate_normCountMatrix))
       covOut = pcOut$x[,1:10]
       ##Write out PCs and input matrix for QTL.
-      write.table(aggregate_normCountMatrix,paste0(opt$out_dir,"/",ct,".inputExpression.txt"),quote=F,sep="\t",col.names=NA)
-      write.table(covOut,paste0(opt$out_dir,"/",ct,".Pcs.txt"),quote=F,sep="\t",col.names=NA)
+      write.table(aggregate_normCountMatrix,paste0(opt$out_dir,"/",ct,".qtlInput.txt"),quote=F,sep="\t",col.names=NA)
+      write.table(covOut,paste0(opt$out_dir,"/",ct,".qtlInput.Pcs.txt"),quote=F,sep="\t",col.names=NA)
       
       ##Write covariates global covariates.
       meta.d = cbind(meta.d,cellCount[match(meta.d$Donor_Pool,names(cellCount))]) ##Add cell numbers.
