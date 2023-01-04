@@ -104,7 +104,7 @@ if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
     rm(countMatrixFull)
     gc();
     
-    IDs = meta.d$Donor_Pool
+    IDs = meta.d.full$Donor_Pool
     unique_ID_list = unique(IDs)
     
     normCountMatrix = countMatrix ##To store in the new object in.
