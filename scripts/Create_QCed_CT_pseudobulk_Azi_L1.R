@@ -50,12 +50,17 @@ system.time(psamMetaD <- read.delim(pbmc_psam_fn,as.is=T,check.names=F))
 pbmc_metadata_fn <- opt$metadata
 print(paste0('Reading pbmc WG1-WG2 metadata: ',pbmc_metadata_fn))
 system.time(pbmcMetaD <- readRDS(pbmc_metadata_fn))
-
+pbmcMetaD = as.data.frame(pbmcMetaD)
 rm(pbmc_fn,pbmc_metadata_fn,pbmc_psam_fn)
+
+##Make combined L1 annotation.
+pbmcMetaD["celltype.l1"] = pbmcMetaD$predicted.celltype.l1
+pbmcMetaD$celltype.l1[which(pbmcMetaD$celltype.l1!=pbmcMetaD$scpred.l1.prediction)] = NA
 
 #Filtering to cells to keep.
 pbmcMetaD  = pbmcMetaD[which(pbmcMetaD$tag=="NotOutlier"),]
-pbmcMetaD  = pbmcMetaD[which(pbmcMetaD$predicted.celltype.l1 %in% c("CD4_T","Mono","CD8_T","NK","B","DC","other_T")),]
+pbmcMetaD  = pbmcMetaD[which(pbmcMetaD$celltype.l1 != "Doublet"),]
+#pbmcMetaD  = pbmcMetaD[which(pbmcMetaD$celltype.l1 %in% c("CD4_T","Mono","CD8_T","NK","B","DC","other_T")),]
 
 #Make sure the entries match.
 pbmcMetaD  = pbmcMetaD[which(pbmcMetaD$Barcode %in% colnames(pbmc)),]
@@ -63,7 +68,7 @@ pbmc = pbmc[,which(colnames(pbmc) %in% pbmcMetaD$Barcode)]
 
 pbmc = pbmc[,order(colnames(pbmc))]
 pbmcMetaD = pbmcMetaD[match(colnames(pbmc),pbmcMetaD$Barcode),]
-pbmcMetaD = cbind(pbmcMetaD,paste0(pbmcMetaD$predicted.celltype.l1,";;",pbmcMetaD$Pool,";;",pbmcMetaD$Assignment))
+pbmcMetaD = cbind(pbmcMetaD,paste0(pbmcMetaD$celltype.l1,";;",pbmcMetaD$Pool,";;",pbmcMetaD$Assignment))
 colnames(pbmcMetaD)[ncol(pbmcMetaD)] ="CT_Pool_Donor"
 
 pbmcMetaD = cbind(pbmcMetaD,paste0(pbmcMetaD$Assignment,";;",pbmcMetaD$Pool))
@@ -80,14 +85,15 @@ if(aggregate_fun!='mean'){
 }
 print(all(colnames(pbmc)==pbmcMetaD$Barcode))
 
+write.table(cbind(pbmc@meta.data,pbmcMetaD),paste0(opt$out_dir,"/AllMetaData.debug.txt"),quote=F,sep="\t",row.names=F)
 
 if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
   pbmc@meta.data = pbmcMetaD
   rm(pbmcMetaD,psamMetaD)
-  cellCts = pbmc$predicted.celltype.l1
-  ctList = unique(pbmc$predicted.celltype.l1)
+  cellCts = pbmc$celltype.l1
+  ctList = unique(na.omit(cellCts))
   
-  ##Temporary save Seurate object?
+  ##Temporary save Seurate object.
   saveRDS(pbmc,paste0(opt$out_dir,"/tmpFiltered.Seurat.Rds"))
   for(ct in ctList){
     if(is.null(pbmc)){
@@ -145,37 +151,45 @@ if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
     
     print('Aggregating count matrix using lapply + textTinyR::sparse_Means() ...')
     ##normCountMatrix <- as(normCountMatrix, "dgCMatrix")
-  
+    
     system.time(aggregate_normCountMatrix <- as.data.frame(pblapply(unique_ID_list, FUN = function(x){sparse_Means(normCountMatrix[,IDs == x, drop = FALSE], rowMeans = TRUE)})))
     cellCount <- pblapply(unique_ID_list, FUN = function(x){ncol(normCountMatrix[,IDs == x, drop = FALSE])})
     colnames(aggregate_normCountMatrix) <- names(cellCount) <- unique_ID_list
     rownames(aggregate_normCountMatrix) <- rownames(normCountMatrix)
     
     cellCount = unlist(cellCount)
-    aggregate_normCountMatrix = aggregate_normCountMatrix[,which(colnames(aggregate_normCountMatrix) %in% names(which(cellCount>9)))]
     
     print(paste0("Writing pseudo bulk data: ",ct))
     ##Write out psuedo-bulk.
-    if(ncol(aggregate_normCountMatrix)>15){
-      ##Drop rows that are not varying, which will include genes that are only zero.
-      rowVarInfo = rowVars(as.matrix(aggregate_normCountMatrix))
-      aggregate_normCountMatrix = aggregate_normCountMatrix[which(rowVarInfo!=0),]
-      write.table(aggregate_normCountMatrix,paste0(opt$out_dir,"/",ct,".Exp.txt"),quote=F,sep="\t",col.names=NA)
-      ## Do inverse normal transform per gene.
-      for(rN in 1:nrow(aggregate_normCountMatrix)){
-         aggregate_normCountMatrix[rN,] = qnorm((rank(aggregate_normCountMatrix[rN,],na.last="keep")-0.5)/sum(!is.na(aggregate_normCountMatrix[rN,])))
+    write.table(aggregate_normCountMatrix,paste0(opt$out_dir,"/",ct,".Exp.txt"),quote=F,sep="\t",col.names=NA)
+    
+    ##Write covariates global covariates.
+    meta.d = cbind(meta.d,cellCount[match(meta.d$Donor_Pool,names(cellCount))]) ##Add cell numbers.
+    colnames(meta.d)[ncol(meta.d)]="CellCount" ##Fix nameing.
+    write.table(meta.d,paste0(opt$out_dir,"/",ct,".covariates.txt"),quote=F,sep="\t",row.names=F)
+    
+    ##Write QTL input.
+    
+    ##For QTL first filter, take only obersvations from 5 cells, and rows that are varying.
+    aggregate_normCountMatrix = aggregate_normCountMatrix[,which(colnames(aggregate_normCountMatrix) %in% names(which(cellCount>4)))]
+    ##Only write-out files when there are more then 15 observations.
+    if(!is.null(dim(aggregate_normCountMatrix))){
+      if(ncol(aggregate_normCountMatrix)>15){
+        ##Filter based on gene variance
+        rowVarInfo = rowVars(as.matrix(aggregate_normCountMatrix))
+        aggregate_normCountMatrix = aggregate_normCountMatrix[which(rowVarInfo!=0),]
+        
+        ## Do inverse normal transform per gene.
+        for(rN in 1:nrow(aggregate_normCountMatrix)){
+          aggregate_normCountMatrix[rN,] = qnorm((rank(aggregate_normCountMatrix[rN,],na.last="keep")-0.5)/sum(!is.na(aggregate_normCountMatrix[rN,])))
+        }
+        ##Do PCA, and select first 10 components.
+        pcOut = prcomp(t(aggregate_normCountMatrix))
+        covOut = pcOut$x[,1:10]
+        ##Write out PCs and input matrix for QTL.
+        write.table(aggregate_normCountMatrix,paste0(opt$out_dir,"/",ct,".qtlInput.txt"),quote=F,sep="\t",col.names=NA)
+        write.table(covOut,paste0(opt$out_dir,"/",ct,".qtlInput.Pcs.txt"),quote=F,sep="\t",col.names=NA)
       }
-      ##Do PCA, and select first 10 components.
-      pcOut = prcomp(t(aggregate_normCountMatrix))
-      covOut = pcOut$x[,1:10]
-      ##Write out PCs and input matrix for QTL.
-      write.table(aggregate_normCountMatrix,paste0(opt$out_dir,"/",ct,".qtlInput.txt"),quote=F,sep="\t",col.names=NA)
-      write.table(covOut,paste0(opt$out_dir,"/",ct,".qtlInput.Pcs.txt"),quote=F,sep="\t",col.names=NA)
-      
-      ##Write covariates global covariates.
-      meta.d = cbind(meta.d,cellCount[match(meta.d$Donor_Pool,names(cellCount))]) ##Add cell numbers.
-      colnames(meta.d)[ncol(meta.d)]="CellCount" ##Fix nameing.
-      write.table(meta.d,paste0(opt$out_dir,"/",ct,".covariates.txt"),quote=F,sep="\t",row.names=F)
     }
   }
 }
