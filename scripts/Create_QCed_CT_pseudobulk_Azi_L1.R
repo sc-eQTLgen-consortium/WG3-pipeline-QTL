@@ -85,11 +85,9 @@ if(aggregate_fun!='mean'){
 }
 print(all(colnames(pbmc)==pbmcMetaD$Barcode))
 
-write.table(cbind(pbmc@meta.data,pbmcMetaD),paste0(opt$out_dir,"/AllMetaData.debug.txt"),quote=F,sep="\t",row.names=F)
-
 if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
   pbmc@meta.data = pbmcMetaD
-  rm(pbmcMetaD,psamMetaD)
+  rm(psamMetaD)
   cellCts = pbmc$celltype.l1
   ctList = unique(na.omit(cellCts))
   
@@ -192,4 +190,5 @@ if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
       }
     }
   }
+  write.table(cbind(pbmc@meta.data,pbmcMetaD),paste0(opt$out_dir,"../AllMetaData.debug.txt"),quote=F,sep="\t",row.names=F)
 }
