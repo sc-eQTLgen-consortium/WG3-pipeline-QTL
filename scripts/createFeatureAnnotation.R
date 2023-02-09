@@ -5,14 +5,19 @@ shhh <- suppressPackageStartupMessages
 shhh(library(optparse))
 option_list = list(
   make_option(c("--in_gtf"), action="store", default=NA, type='character',
-              help="Input GTF file."),
-  make_option(c("--n_genes"), action="store", default=100, type='character',
-              help="Number of genes to test in one QTL map job."),
-  make_option(c("--n_genes"), action="store", default=100, type='character',
-              help="Number of genes to test in one QTL map job."),
+              help="Input GTF file. (required)"),
+  make_option(c("--n_genes"), action="store", default=100, type='integer',
+              help="Number of genes to test in one QTL map job. "),
+  make_option(c("--feature_name"), action="store", default="GeneName", type='character',
+              help="Number of genes to test in one QTL map job. "),
   make_option(c("--out_dir"), action="store", default=NA, type='character',
-              help="Output main directory"))
+              help="Output main directory. (required)"))
 opt = parse_args(OptionParser(option_list=option_list))
+
+# check date is provided
+if ((is.na(opt$in_gtf) || is.na(opt$out_dir))) {
+  stop("required parameters (in_gtf & out_dir) must be provided. ")
+}
 
 #### Read gene annotation
 gtfInfo = read.delim(opt$in_gtf,as.is=T,comment="#",header=F)
