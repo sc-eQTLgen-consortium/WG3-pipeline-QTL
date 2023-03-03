@@ -13,17 +13,16 @@ top_dir: /groups/umcg-franke-scrna/tmp01/ ### Thhis folder will be bound to Sing
 #####################################
 
 WG3_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/ ### The path to the outputs from WG3
-out_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/output/
+out_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/output/ ##The output base file for the eQTL mapping.
 
 ######################################
 ######        Do not change      #####
 ######################################
-numberOfPermutations: '1000'
-minorAlleleFrequency: '0.001'
-windowSize: '500000' #gene + cis window from one side
-hardyWeinbergCutoff: '0.0001'
-compressFiles: true
-
+numberOfPermutations: '1000'  # Number of permutations
+minorAlleleFrequency: '0.01'  # Minor allele frequency
+windowSize: '500000'          #eQTL window size (gene + cis window taken at both sides)
+hardyWeinbergCutoff: '0.0001' # HWE threshold
+compressFiles: true           # Compress output
 celltypes:
     - L1/B
     - L1/CD4_T
