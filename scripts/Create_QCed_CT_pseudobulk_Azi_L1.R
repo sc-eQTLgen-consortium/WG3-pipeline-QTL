@@ -224,7 +224,7 @@ if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
   ##Write one folder up.
   write.table(tmpMd,paste0(gsub("L1","",opt$out_dir),"/AllMetaData.debug.txt"),quote=F,sep="\t",row.names=F)
   ##Write one folder up.
-  smf = unique(tmpMd[,c(5,32)])
+  smf = unique(tmpMd[,c("IID","Donor_Pool")])
   colnames(smf)=c("genotype_id","phenotype_id")
-  write.table(unique(tmpMd[,c(5,32)]),paste0(gsub("L1","",opt$out_dir),"/smf.txt"),quote=F,sep="\t",row.names=F)
+  write.table(smf,paste0(gsub("L1","",opt$out_dir),"/smf.txt"),quote=F,sep="\t",row.names=F)
 }
