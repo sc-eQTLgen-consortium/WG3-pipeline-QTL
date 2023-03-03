@@ -1,0 +1,117 @@
+from pathlib import Path
+import re
+
+configfile: "Qtl_wp3.yaml"
+imageDir = config["image_folder"]
+includeDir = config["top_dir"]
+celltypes=config["celltypes"]
+outputFolder=Path(config["out_folder"])
+
+limix_path="singularity exec --bind "+includeDir+" "+imageDir+"limixDec22.simg python /limix_qtl/Limix_QTL/"
+
+##Built variables needed during QTL mapping.
+phenotypeFile = config["WG3_folder"]+'input/{ct}.qtlInput.txt'    # use {ct} to indicate celltype
+genotypeFile= config["WG3_folder"]+ 'genotype_input/EUR_imputed_hg38_varFiltered_chr{chrom}'  # use {chrom} if genotype is splitted by chromosome
+covariateFile= config["WG3_folder"]+'input/{ct}.qtlInput.Pcs.txt'
+kinshipFile= config["WG3_folder"]+'input/sample.kinship'
+chunkFile = config["WG3_folder"]+'input/ChunkingFile.txt'
+annoFile = config["WG3_folder"]+'input/LimixAnnotationFile.txt'
+sampleMappingFile = config["WG3_folder"]+'input/smf.txt'
+
+chunk_chrom, chunk_start, chunk_end=[], [], []
+with open(chunkFile) as fp:
+    for line in fp:
+        re_match=re.match(r"([A-Za-z0-9]+):(\d+)-(\d+)", line.strip())
+        chunk_chrom.append(re_match[1])
+        chunk_start.append(re_match[2])
+        chunk_end.append(re_match[3])
+
+qtlChunks=expand(outputFolder/"{ct}"/"qtl"/"{chrom}_{start}_{end}.finished", zip, chrom=chunk_chrom, start=chunk_start, end=chunk_end, allow_missing=True)
+
+rule all:
+    input:
+        expand(outputFolder/"{ct}"/"qtl_results_all.txt", ct=celltypes),
+        expand(outputFolder/"{ct}"/"top_qtl_results_all.txt", ct=celltypes),
+        expand(outputFolder/"{ct}"/"qtl.tar.gz", ct=celltypes) if config['compressFiles'] else []
+    output:
+        touch(expand(outputFolder/"{ct}"/"done.txt", ct=celltypes)),
+        annoFile,
+        chunkFile
+
+
+rule run_qtl_mapping:
+    input:
+        af = annoFile,
+        pf = phenotypeFile,
+        smf = sampleMappingFile,
+        cf = covariateFile,
+        kf = kinshipFile
+        #rf = config["randomeff_files"] if config["randomeff_files"]!='' else []
+    output:
+        touch(outputFolder/"{ct}"/"qtl"/"{chrom}_{start}_{end}.finished")
+    params:
+        od = str(outputFolder/"{ct}"/"qtl")+"/",
+        gen  = genotypeFile,
+        np = config["numberOfPermutations"],
+        maf = config["minorAlleleFrequency"],
+        hwe = config["hardyWeinbergCutoff"],
+        w = config["windowSize"]
+    shell:
+        (limix_path + "run_QTL_analysis_metaAnalysis.py "
+            " --bgen {params.gen} "
+            " -af {input.af} "
+            " -cf {input.cf} "
+            " -pf {input.pf} "
+            " -smf {input.smf} "
+            " -od {params.od} "
+            " -gr {wildcards.chrom}:{wildcards.start}-{wildcards.end} "
+            " -np {params.np} "
+            " -maf {params.maf} "
+            " -c -gm gaussnorm "
+            " -w {params.w} "
+            " -hwe {params.hwe} "
+            " -rs .8 "
+            " -rc ")
+
+rule aggregate_qtl_results:
+    input:
+        qtlChunks
+    output:
+        outputFolder/"{ct}"/"qtl_results_all.txt"
+    params:
+        idir = str(outputFolder/"{ct}"/"qtl")+"/",
+        odir = str(outputFolder/"{ct}")+"/"
+    shell:
+        (limix_path + "post_processing/minimal_postprocess.py "
+            " -id {params.idir} "
+            " -od {params.odir} "
+            " -sfo ")
+
+
+rule top_feature:
+    input:
+        outputFolder/"{ct}"/"qtl_results_all.txt",
+        qtlChunks
+    output:
+        outputFolder/"{ct}"/"top_qtl_results_all.txt"
+    params:
+        idir = str(outputFolder/"{ct}"/"qtl")+"/",
+        odir = str(outputFolder/"{ct}")+"/"
+    shell:
+        (limix_path + "post_processing/minimal_postprocess.py "
+            " -id {params.idir} "
+            " -od {params.odir} "
+            "-tfb "
+            "-sfo ")
+
+
+rule compress_qtl:
+    input:
+        qtlChunks,
+        outputFolder/"{ct}"/"qtl_results_all.txt",
+        outputFolder/"{ct}"/"top_qtl_results_all.txt"
+    output:
+        outputFolder/"{ct}"/"qtl.tar.gz"
+    params:
+        idir = str(outputFolder/"{ct}"/"qtl")
+    shell: "tar -C {params.idir} -czf {output} . && rm -rf {params.idir}"
