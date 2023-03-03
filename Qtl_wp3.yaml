@@ -6,7 +6,7 @@
 #####################################################################################
 
 image_folder: /groups/umcg-franke-scrna/tmp01/users/umcg-mjbonder/ ### The path to the folder within which the simgularity image & "wp3.simg" "limixDec22.simg" is located
-top_dir: /groups/umcg-franke-scrna/tmp01/ ### Thhis folder will be bound to Singularty (needs to be highr up then every data item.
+top_dir: /groups/umcg-franke-scrna/tmp01/ ### This/these folder(s) will be bound to Singularty (needs to be higher up in the folder structure then your data). You can have multiple directories by adding a comma followed by a next folder.
 
 #####################################
 ##       input files/folders       ###
