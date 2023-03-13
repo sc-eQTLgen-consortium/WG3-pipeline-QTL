@@ -20,7 +20,7 @@ out_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipel
 ######################################
 numberOfPermutations: '1000'  # Number of permutations
 minorAlleleFrequency: '0.01'  # Minor allele frequency
-windowSize: '500000'          #eQTL window size (gene + cis window taken at both sides)
+windowSize: '1000000'          #eQTL window size (gene + cis window taken at both sides)
 hardyWeinbergCutoff: '0.0001' # HWE threshold
 compressFiles: true           # Compress output
 celltypes:
