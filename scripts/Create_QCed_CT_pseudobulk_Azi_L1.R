@@ -150,6 +150,11 @@ if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
     print(paste0('   ### n_genes (sc-data): ', nrow(normCountMatrix)))
     cat('\n')
     
+    if(sum(cellCts == ct) <= 1){
+      print(paste(ct,'has 1 or 0 cells, skip'))
+      next
+    }
+    
     # PF
     sampleSumInfo = colSums(normCountMatrix)
     meanSampleSum = mean(sampleSumInfo)
