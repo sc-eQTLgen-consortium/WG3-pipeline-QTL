@@ -6,23 +6,32 @@
 #####################################################################################
 
 image_folder: /groups/umcg-franke-scrna/tmp01/users/umcg-mjbonder/ ### The path to the folder within which the simgularity image & "wp3.simg" "limixDec22.simg" is located
-top_dir: /groups/umcg-franke-scrna/tmp01/ ### This/these folder(s) will be bound to Singularty (needs to be higher up in the folder structure then your data). You can have multiple directories by adding a comma followed by a next folder.
+top_dir: /groups/umcg-franke-scrna/tmp01/ ### Thhis folder will be bound to Singularty (needs to be highr up then every data item.
 
 #####################################
 ##       input files/folders       ###
 #####################################
 
 WG3_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/ ### The path to the outputs from WG3
-out_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/output/ ##The output base file for the eQTL mapping.
-
+out_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/output/
 ######################################
 ######        Do not change      #####
 ######################################
-numberOfPermutations: '1000'  # Number of permutations
-minorAlleleFrequency: '0.01'  # Minor allele frequency
-windowSize: '1000000'          #eQTL window size (gene + cis window taken at both sides)
-hardyWeinbergCutoff: '0.0001' # HWE threshold
-compressFiles: true           # Compress output
+numberOfPermutations: '1000'
+minorAlleleFrequency: '0.01'
+windowSize: '1000000' #gene + cis window from one side
+hardyWeinbergCutoff: '0.0001'
+compressFiles: true
+
 celltypes:
     - L1/B
     - L1/CD4_T
+    - L1/CD8_T
+    - L1/DC
+    - L1/Mono
+    - L1/NK
+#    - L1/Eryth
+#    - L1/HSPC
+#    - L1/ILC
+#    - L1/Platelet
+#    - L1/Other_T
