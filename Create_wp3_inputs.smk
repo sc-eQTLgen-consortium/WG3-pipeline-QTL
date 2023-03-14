@@ -1,3 +1,5 @@
+import os
+
 CHROM = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22']
 configfile: "wp3_input_create.yaml"
 
@@ -27,6 +29,9 @@ inclusion_files = expand(genotype_folder+"EUR_imputed_hg38_inclusion_{chrom}.var
 
 annoFile = wg3_folder+'input/LimixAnnotationFile.txt'
 chunkFile = wg3_folder+'input/ChunkingFile.txt'
+
+if not os.path.exists(wg3_folder):
+   os.makedirs(wg3_folder)
 
 rule all:
     input:
