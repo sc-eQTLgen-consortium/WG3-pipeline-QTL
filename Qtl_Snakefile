@@ -88,9 +88,9 @@ rule aggregate_qtl_results:
             " -sfo ")
 
 
+
 rule top_feature:
     input:
-        outputFolder/"{ct}"/"qtl_results_all.txt",
         qtlChunks
     output:
         outputFolder/"{ct}"/"top_qtl_results_all.txt"
@@ -104,14 +104,15 @@ rule top_feature:
             "-tfb "
             "-sfo ")
 
-
 rule compress_qtl:
     input:
-        qtlChunks,
-        outputFolder/"{ct}"/"qtl_results_all.txt",
-        outputFolder/"{ct}"/"top_qtl_results_all.txt"
+        outputFolder/"{ct}"/"top_qtl_results_all.txt",
+        qtlChunks
     output:
-        outputFolder/"{ct}"/"qtl.tar.gz"
+        h5=outputFolder/"{ct}"/"qtl.h5.tgz",
+        anno=outputFolder/"{ct}"/"qtl.annotation.tgz",
+        perm=outputFolder/"{ct}"/"qtl.permutations.tgz"
     params:
         idir = str(outputFolder/"{ct}"/"qtl")
-    shell: "tar -C {params.idir} -czf {output} . && rm -rf {params.idir}"
+    shell: "tar -C {params.idir} -czf {output.h5} *.h5 && tar -C {params.idir} -cf {output.perm} *.pickle.gz && tar -C {params.idir} -cf {output.anno} *.txt.gz"
+    ##&& rm -rf {params.idir}
