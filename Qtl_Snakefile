@@ -73,21 +73,6 @@ rule run_qtl_mapping:
             " -rs .8 "
             " -rc ")
 
-rule aggregate_qtl_results:
-    input:
-        qtlChunks
-    output:
-        outputFolder/"{ct}"/"qtl_results_all.txt"
-    params:
-        idir = str(outputFolder/"{ct}"/"qtl")+"/",
-        odir = str(outputFolder/"{ct}")+"/"
-    shell:
-        (limix_path + "post_processing/minimal_postprocess.py "
-            " -id {params.idir} "
-            " -od {params.odir} "
-            " -sfo ")
-
-
 
 rule top_feature:
     input:
