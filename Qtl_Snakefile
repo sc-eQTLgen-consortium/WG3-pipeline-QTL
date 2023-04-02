@@ -91,13 +91,14 @@ rule top_feature:
 
 rule compress_qtl:
     input:
-        outputFolder/"{ct}"/"top_qtl_results_all.txt",
-        qtlChunks
+        topQtl = outputFolder/"{ct}"/"top_qtl_results_all.txt",
+        qtlChunks = qtlChunks
     output:
         h5=outputFolder/"{ct}"/"qtl.h5.tgz",
         anno=outputFolder/"{ct}"/"qtl.annotation.tgz",
-        perm=outputFolder/"{ct}"/"qtl.permutations.tgz"
+        perm=outputFolder/"{ct}"/"qtl.permutations.tgz",
+        gzTopQtl=outputFolder/"{ct}"/"top_qtl_results_all.txt.gz"
     params:
         idir = str(outputFolder/"{ct}"/"qtl")
-    shell: "tar -C {params.idir} -czf {output.h5} *.h5 && tar -C {params.idir} -cf {output.perm} *.pickle.gz && tar -C {params.idir} -cf {output.anno} *.txt.gz"
+    shell: "tar -czf {output.h5} {params.idir}/*.h5 && find {params.idir} | grep '\.pickle.gz$' > {params.idir}/files.txt &&  tar cf {output.perm} -T {params.idir}/files.txt && tar -cf {output.anno} {params.idir}/*.txt.gz && gzip {input.topQtl} "
     ##&& rm -rf {params.idir}
