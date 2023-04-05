@@ -81,6 +81,6 @@ for i in range(len(genes_dict['start'])):
 ##### WRITE EACH WINDOW TO FILE #####
 
 for i in windows:
-    with open(f"chr_{CHROM}_window_{i}_{windows[i]['range'][0]}_{windows[i]['range'][1]}.pkl", 'wb') as fp:
+    with open(f"{filepath_out}/chr_{CHROM}_window_{i}_{windows[i]['range'][0]}_{windows[i]['range'][1]}.pkl", 'wb') as fp:
         pickle.dump(windows[i], fp)
 
