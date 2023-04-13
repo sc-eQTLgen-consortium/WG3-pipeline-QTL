@@ -15,17 +15,16 @@ import pandas as pd
 import gzip
 import pickle
 
-CHROM = str(sys.argv[3])
+CHROM = str(sys.argv[2])
 
 window_size = 5000000 # size of sliding window
 gene_window = 1000000 # window size around a gene
 
-filepath = str(sys.argv[1])
-filepath_gene = str(sys.argv[2])
-filepath_out = str(sys.argv[4])
+filepath_gene = str(sys.argv[1])
+filepath_out = str(sys.argv[3])
 input_filepath_feature = f"{filepath_gene}"
 
-## OUTFILE DEFINED AT END OF SCRIPT
+## INDIVIDUAL OUTFILES DEFINED AT END OF SCRIPT
 
 
 """
