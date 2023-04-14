@@ -1,5 +1,5 @@
 """
-Author:     D.Kaptijn
+Author:     D.Kaptijn & M.J.Bonder
 Date:       31/03/2023
 PyVersion:  3.9.12
 About:      This code defines windows to calculate LD in
@@ -31,25 +31,14 @@ input_filepath_feature = f"{filepath_gene}"
 CODE
 """
 print(f"\nRunning LD window script on chromosome {CHROM}\n")
-print('reading gene features file..')
+print('reading and preparing gene features file..')
 
-with gzip.open(input_filepath_feature, 'r') as f:
-    genes=[(line.decode()).strip() for line in f.readlines()]
-
-genes_dict = {}
-for i in genes[0].split('\t'):
-    genes_dict[i] = []
-
-col_names = [i for i in genes_dict]
-
-genes = genes[1:] # header is no longer required
-for i in range(len(genes)):
-    temp = genes[i].split('\t')
-    for j in range(len(col_names)):
-        if col_names[j] == 'chromosome' and str(temp[j]) == CHROM:
-            for k in range(len(col_names)):
-                genes_dict[col_names[k]].append(temp[k])
-# genes_dict is a dictionary with a key for each heading in the genes features (e.g. feature_ID) file and a list of values that correspond to each key
+gene_info = pd.read_table(input_filepath_feature)
+gene_info = gene_info.loc[gene_info["chromosome"]==CHROM]
+##Add midpoint
+gene_info["mid"] = gene_info["start"] +((gene_info["end"]-gene_info["start"])/2)
+##Sort on start.
+gene_info = gene_info.sort_values("start")
 
 print("Creating LD windows..")
 
@@ -57,24 +46,24 @@ print("Creating LD windows..")
 windows = {}
 n = 0 # variable which defines key in windows dictionary
 start = False # variable required for first loop
-for i in range(len(genes_dict['start'])):
+for i in range(gene_info.shape[0]):
     if start == False:
-      win_start = int(genes_dict['start'][i]) - gene_window
+      win_start = gene_info['start'].iloc[i] - gene_window
       block = win_start + window_size
       start = True
-      end = int(genes_dict['end'][i])
-    mid_point_gene = int(genes_dict['start'][i]) + (int(genes_dict['end'][i]) - int(genes_dict['start'][i]))/2
-    if mid_point_gene < block and end < int(genes_dict['end'][i]):
-      end = int(genes_dict['end'][i])
-    elif mid_point_gene > block: # start of next window
+      end = int(gene_info['end'].iloc[i])
+    
+    if gene_info['mid'].iloc[i] < block and end < int(gene_info['end'].iloc[i]):
+      end = int(gene_info['end'].iloc[i])
+    elif gene_info['mid'].iloc[i] > block: # start of next window
       win_end = end + gene_window
       windows[str(n)] = {}
       windows[str(n)]['range'] = [win_start, win_end]
       windows[str(n)]['SNPs'] = []
       n+=1
-      win_start = int(genes_dict['start'][i]) - gene_window
+      win_start = gene_info['start'].iloc[i] - gene_window
       block = win_start + window_size
-      end = int(genes_dict['end'][i])
+      end = int(gene_info['end'].iloc[i])
 
 
 ##### WRITE EACH WINDOW TO FILE #####
