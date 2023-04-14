@@ -17,7 +17,7 @@ from bgen_reader import read_bgen
 """input"""
 in_filepath = str(sys.argv[1])
 out_filepath = str(sys.argv[2])
-infilename = in_filepath.split("/")[len(in_filepath.split("/"))-1]
+infilename = in_filepath.split("/")[len(in_filepath.split("/"))-1] #makes filepath into a list, each folder is an item, and selects the final item (the name of the file)
 
 filepath_bgen = in_filepath
 
