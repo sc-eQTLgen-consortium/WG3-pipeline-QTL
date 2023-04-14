@@ -38,7 +38,7 @@ gene_info = gene_info.loc[gene_info["chromosome"]==CHROM]
 ##Add midpoint
 gene_info["mid"] = gene_info["start"] +((gene_info["end"]-gene_info["start"])/2)
 ##Sort on start.
-gene_info = gene_info.sort_values("start")
+gene_info = gene_info.sort_values(["start","mid"])
 
 print("Creating LD windows..")
 
