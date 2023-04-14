@@ -22,18 +22,18 @@ infilename = in_filepath.split("/")[len(in_filepath.split("/"))-1] #makes filepa
 filepath_bgen = in_filepath
 
 """output"""
-filepath_output_z      = f'{out_filepath}outputs/{infilename}.z'
-filepath_output_sample = f'{out_filepath}outputs/{infilename}.sample'
-filepath_output_master = f'{out_filepath}outputs/{infilename}_master.txt'
+filepath_output_z      = f'{out_filepath}/{infilename}.z'
+filepath_output_sample = f'{out_filepath}/{infilename}.sample'
+filepath_output_master = f'{out_filepath}/{infilename}_master.txt'
 
 
 """ FILE LOCATIONS FOR MASTER FILE """
 
-z_file            = f"{out_filepath}outputs/{infilename}.z"
+z_file            = f"{filepath_output_z}"
 bgen_file         = f"{in_filepath}"
 bgi_file          = f"{in_filepath}.bgi"
-sample_file       = f"{out_filepath}outputs/{infilename}.sample"
-bdose_file_output = f"{out_filepath}outputs/test_dataset.bdose"
+sample_file       = f"{filepath_output_sample}"
+bdose_file_output = f"{out_filepath}/test_dataset.bdose"
 
 
 """ READ INPUT VCF """
