@@ -33,7 +33,7 @@ z_file            = f"{filepath_output_z}"
 bgen_file         = f"{in_filepath}"
 bgi_file          = f"{in_filepath}.bgi"
 sample_file       = f"{filepath_output_sample}"
-bdose_file_output = f"{out_filepath}/test_dataset.bdose"
+bdose_file_output = f"{out_filepath}/{infilename}.bdose"
 
 
 """ READ INPUT VCF """
