@@ -35,9 +35,9 @@ input_filepath_bdose  = f"{str(sys.argv[2])}"
 
 outfile = input_filepath_window[:-4] #removes file extenstion (.pkl)
 
-outfile_low_dim = f'{filepath_out}/{outfile}_low_dim.pkl'
-outfile_components = f'{filepath_out}/{outfile}_components.pkl'
-outfile_means = f'{filepath_out}/{outfile}_means.pkl'
+outfile_low_dim = f'{outfile}_low_dim.pkl'
+outfile_components = f'{outfile}_components.pkl'
+outfile_means = f'{outfile}_means.pkl'
 
 
 """
@@ -57,7 +57,7 @@ CHROM=str(myBdose.getMeta()['chromosome'][1])
 SNP_position_by_chromosome = {}
 SNP_position_by_chromosome[CHROM] = []
 for i in range(len(myBdose.getMeta()['chromosome'])):
-    SNP_position_by_chromosome[chromosome_SNP].append(myBdose.getMeta()['position'].iloc[i])
+    SNP_position_by_chromosome[CHROM].append(myBdose.getMeta()['position'].iloc[i])
 
 # SNP_position_by_chromosome is a dictionary in which the keys relate to the chromosome and the values relate to the position of the SNP
 
