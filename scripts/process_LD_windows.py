@@ -29,11 +29,9 @@ window_size = 5000000 # size of sliding window
 gene_window = 1000000 # window size around a gene
 
 filepath = str(sys.argv[1])
-filename_bdose = str(sys.argv[2])
-filename_window = str(sys.argv[3])
 filepath_out = str(sys.argv[5])
-input_filepath_window = f"{filepath}/{filename_window}"
-input_filepath_bdose  = f"{filepath}/{filename_bdose}"
+input_filepath_window = f"{str(sys.argv[3])}"
+input_filepath_bdose  = f"{str(sys.argv[2])}"
 
 outfile = input_filepath_window[:-4] #removes file extenstion (.pkl)
 
