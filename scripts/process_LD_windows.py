@@ -33,7 +33,7 @@ filepath_out = str(sys.argv[5])
 input_filepath_window = f"{str(sys.argv[3])}"
 input_filepath_bdose  = f"{str(sys.argv[2])}"
 
-outfile = input_filepath_window[:-4] #removes file extenstion (.pkl)
+outfile = filepath_out[:-4] #removes file extenstion (.pkl)
 
 outfile_low_dim = f'{outfile}_low_dim.pkl'
 outfile_components = f'{outfile}_components.pkl'
