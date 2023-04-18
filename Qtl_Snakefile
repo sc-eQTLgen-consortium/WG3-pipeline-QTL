@@ -41,10 +41,10 @@ qtlChunks=expand(outputFolder/"{ct}"/"qtl"/"{chrom}_{start}_{end}.finished", zip
 
 rule all:
     input:
-        #expand(outputFolder/"{ct}"/"top_qtl_results_all.txt.gz", ct=celltypes),
-        #expand(outputFolder/"{ct}"/"qtl.h5.tgz", ct=celltypes),
-        #expand(outputFolder/"{ct}"/"qtl.annotation.tgz", ct=celltypes),
-        #expand(outputFolder/"{ct}"/"qtl.permutations.tgz", ct=celltypes),
+        expand(outputFolder/"{ct}"/"top_qtl_results_all.txt.gz", ct=celltypes),
+        expand(outputFolder/"{ct}"/"qtl.h5.tgz", ct=celltypes),
+        expand(outputFolder/"{ct}"/"qtl.annotation.tgz", ct=celltypes),
+        expand(outputFolder/"{ct}"/"qtl.permutations.tgz", ct=celltypes),
         expand(topDirInput+"/LDMatrices/{winF}",winF=winFiles)
     output:
         touch(expand(outputFolder/"{ct}"/"done.txt", ct=celltypes))
