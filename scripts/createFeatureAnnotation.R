@@ -68,10 +68,6 @@ nGenes = opt$n_genes
 startPos = 0
 endOffset = 1000000000
 
-
-
-
-
 lines = NULL
 for(chr in unique(geneInfo$chromosome)){
   #print(chr)
