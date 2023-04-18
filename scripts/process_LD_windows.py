@@ -85,26 +85,27 @@ f.close()
 f = open(outfile_means, 'w') # this will clear the contents of the file
 f.close()
 
-n_samples = int(myBdose.getNumOfSamples()) # required to select number of PCs
-no_components = min([len(window['SNPs']), n_samples-1])
-pca = PCA(no_components)
-LD_matrix = myBdose.computeCorr(window['SNPs'])
-LD_matrix = LD_matrix.to_numpy()
-lower_dimensional_data = pca.fit_transform(LD_matrix)
-components = pca.components_
-means = pca.mean_
-print(f"Shape of lower_dim_data: {lower_dimensional_data.shape}")
-with open(outfile_low_dim, 'ab') as outp:
-    pickle.dump(lower_dimensional_data, outp)
-outp.close()
-print(f"Shape of components: {components.shape}")
-with open(outfile_components, 'ab') as outp:
-    pickle.dump(components, outp)
-outp.close()
-print(f"Shape of means: {means.shape}\n")
-with open(outfile_means, 'ab') as outp:
-    pickle.dump(means, outp)
-outp.close()
+if len(window["SNPs"])>0 :
+    n_samples = int(myBdose.getNumOfSamples()) # required to select number of PCs
+    no_components = min([len(window['SNPs']), n_samples-1])
+    pca = PCA(no_components)
+    LD_matrix = myBdose.computeCorr(window['SNPs'])
+    LD_matrix = LD_matrix.to_numpy()
+    lower_dimensional_data = pca.fit_transform(LD_matrix)
+    components = pca.components_
+    means = pca.mean_
+    print(f"Shape of lower_dim_data: {lower_dimensional_data.shape}")
+    with open(outfile_low_dim, 'ab') as outp:
+        pickle.dump(lower_dimensional_data, outp)
+    outp.close()
+    print(f"Shape of components: {components.shape}")
+    with open(outfile_components, 'ab') as outp:
+        pickle.dump(components, outp)
+    outp.close()
+    print(f"Shape of means: {means.shape}\n")
+    with open(outfile_means, 'ab') as outp:
+         pickle.dump(means, outp)
+    outp.close()
 
 print("\nScript finished.")
 
