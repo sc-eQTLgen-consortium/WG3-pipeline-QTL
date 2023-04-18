@@ -1,7 +1,5 @@
-import os
-
 CHROM = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22']
-configfile: "wp3_input_create.yaml"
+configfile: "wp3.yaml"
 
 image_folder = config["image_folder"]
 top_dir = config["top_dir"]
@@ -26,16 +24,16 @@ kinshipFile = wg3_folder+"input/sample.kinship"
 genotypeSampleInfo = genotype_folder+"EUR_imputed_hg38_stats.samples.gz"
 cellAnnotationFile = config["cellAnnotation"]
 inclusion_files = expand(genotype_folder+"EUR_imputed_hg38_inclusion_{chrom}.vars", chrom=CHROM)
+ld_chunks = expand(wg3_folder+"input/WindowsFilesChecks/chr_{chrom}_windows_defined.txt", chrom=CHROM) 
+bgenMeta = expand(genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.metafile", chrom=CHROM)
+
 
 annoFile = wg3_folder+'input/LimixAnnotationFile.txt'
 chunkFile = wg3_folder+'input/ChunkingFile.txt'
 
-if not os.path.exists(wg3_folder):
-   os.makedirs(wg3_folder)
-
 rule all:
     input:
-        expand(genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.metafile", chrom=CHROM), expressionMetaD, kinshipFile, chunkFile, annoFile, sampleMappingFile
+        bgenMeta, expressionMetaD, kinshipFile, chunkFile, annoFile, sampleMappingFile, ld_chunks
 
 
 rule Genotype_IO:
@@ -83,7 +81,6 @@ rule GenotypeHarmonizer:
         gzip {params.log}
         """
 
-
 rule bgen_metadata_files:
     input:
         genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.bgen"
@@ -94,7 +91,7 @@ rule bgen_metadata_files:
         temp(genotype_folder+"outputs/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen_master.txt"),
         genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.metafile"
     shell:
-        f"singularity exec --bind {top_dir} {image_folder}wp3.simg python {scripts_folder}make_z.py {input} {genotype_folder}"
+        "singularity exec --bind {top_dir} {image_folder}wp3.simg python {scripts_folder}make_z.py {input} {genotype_folder}"
 
 
 rule kinship:
@@ -136,7 +133,6 @@ rule derived_summarized_metadata:
             " --in_dir {input} "
             " --out_dir {params} ")
 
-
 rule derive_expression_matrices:
     input:
         wg1 = wg1_folder+singlet_assigned_seurat,
@@ -160,7 +156,6 @@ rule derive_expression_matrices:
             " --cell_annotation {input.cellInfo} "
             " --out_dir {params.outD} ")
 
-
 rule derived_feature_annotation_and_chunks:
     input:
         config["gtf_annotation_file"]
@@ -174,4 +169,18 @@ rule derived_feature_annotation_and_chunks:
         shell("singularity exec --bind {top_dir} {image_folder}/wp3.simg Rscript {scripts_folder}createFeatureAnnotation.R "
             " --in_gtf {input} "
             " --n_genes {params.nChunks} "
-            " --out_dir {params.outFolder} ")
+            " --out_dir {params.outFolder} "
+            " --autosomes_only ")
+
+rule defWindows:
+    input:
+        feature_file = annoFile
+    output:
+        wg3_folder+"input/WindowsFilesChecks/chr_{chrom}_windows_defined.txt"
+    shell:
+        """
+        mkdir -p {wg3_folder}/input/WindowsFilesChecks
+        mkdir -p {wg3_folder}/input/WindowsFiles
+        singularity exec --bind {top_dir} {image_folder}/wp3.simg python {scripts_folder}/define_windows.py {input.feature_file} {wildcards.chrom} {wg3_folder}/input/WindowsFiles
+        touch {output}
+        """
