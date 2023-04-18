@@ -8,10 +8,10 @@ option_list = list(
               help="Input GTF file. (required)"),
   make_option(c("--n_genes"), action="store", default=100, type='integer',
               help="Number of genes to test in one QTL map job. "),
-  make_option(c("--feature_name"), action="store_true", default="false",
-              help="Flag to only keep autosomal genes, default false."),
-  make_option(c("--autosomes_only"), action="store", default="GeneName", type='character',
-              help="The feature_id used in the expression matrix. "),
+  make_option(c("--feature_name"), action="store", default="GeneName",
+              help="The feature_id used in the expression matrix."),
+  make_option(c("--autosomes_only"), action="store_true", default=FALSE, type='character',
+              help="Flag to only keep autosomal genes, default false. "),
   make_option(c("--out_dir"), action="store", default=NA, type='character',
               help="Output main directory. (required)"))
 opt = parse_args(OptionParser(option_list=option_list))
