@@ -26,8 +26,10 @@ gtfInfo = read.delim(opt$in_gtf,as.is=T,comment="#",header=F)
 
 ##Select only genes.
 gtfInfo = gtfInfo[which(gtfInfo$V3=="gene"),]
-##Select only genes.
-gtfInfo = gtfInfo[which(gtfInfo$V1 %in% c(1:22,"X","MT","Y")),]
+##Make sure genes are mapped to numeric
+gtfInfo$V1 = gsub("chr","",gtfInfo$V1)
+##Select only main chromosome mappings.
+gtfInfo = gtfInfo[which(gtfInfo$V1 %in% c(1:22,"X","MT", "M","Y")),]
 
 ##Extend.
 gtfInfo["ENSG"] = gsub("gene_id ","",unlist(lapply(strsplit(gtfInfo$V9,split = ";"),"[[",1)))
