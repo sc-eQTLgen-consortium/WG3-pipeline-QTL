@@ -8,8 +8,10 @@ option_list = list(
               help="Input GTF file. (required)"),
   make_option(c("--n_genes"), action="store", default=100, type='integer',
               help="Number of genes to test in one QTL map job. "),
-  make_option(c("--feature_name"), action="store", default="GeneName", type='character',
-              help="Number of genes to test in one QTL map job. "),
+  make_option(c("--feature_name"), action="store_true", default="false",
+              help="Flag to only keep autosomal genes, default false."),
+  make_option(c("--autosomes_only"), action="store", default="GeneName", type='character',
+              help="The feature_id used in the expression matrix. "),
   make_option(c("--out_dir"), action="store", default=NA, type='character',
               help="Output main directory. (required)"))
 opt = parse_args(OptionParser(option_list=option_list))
@@ -31,10 +33,15 @@ gtfInfo$V1 = gsub("chr","",gtfInfo$V1)
 ##Select only main chromosome mappings.
 gtfInfo = gtfInfo[which(gtfInfo$V1 %in% c(1:22,"X","MT", "M","Y")),]
 
-##Extend.
-gtfInfo["ENSG"] = gsub("gene_id ","",unlist(lapply(strsplit(gtfInfo$V9,split = ";"),"[[",1)))
-gtfInfo["Gene_Name"] = trimws(gsub("gene_name","",unlist(lapply(strsplit(gtfInfo$V9,split = ";"),"[[",3))))
-gtfInfo["biotype"] = trimws(gsub("gene_biotype","",unlist(lapply(strsplit(gtfInfo$V9,split = ";"),"[[",5))))
+##Extend matrix with relevant entries.
+partialMatrix = strsplit(gtfInfo$V9,split = "; ")
+
+ensgIdLoc = which(startsWith(partialMatrix[[1]],"gene_id"))
+gtfInfo["ENSG"] = gsub( "gene_id ","",unlist(lapply(partialMatrix,"[[",ensgIdLoc)))
+nameLoc = which(startsWith(partialMatrix[[1]],"gene_name"))
+gtfInfo["Gene_Name"] = gsub( "gene_name ","",unlist(lapply(partialMatrix,"[[",nameLoc)))
+btLoc = which(startsWith(partialMatrix[[1]],"gene_biotype"))
+gtfInfo["biotype"] = gsub("gene_biotype ","",unlist(lapply(partialMatrix,"[[",btLoc)))
 
 if(opt$feature_name=="ENSG"){
   geneInfo = gtfInfo[,c(10,1,4,5,11,12)]
@@ -44,7 +51,11 @@ if(opt$feature_name=="ENSG"){
   colnames(geneInfo)=c("feature_id","chromosome","start","end","ENSG","biotype")
 }
 
-##drop all genes that have the same names.
+if(opt$autosomes_only){
+  geneInfo = geneInfo[which(geneInfo$chromosome %in% c(1:22),]
+}
+
+##drop all genes that have the same names, to avoid having issues with matching and mapping after.
 toDrop = geneInfo$feature_id[which(duplicated(geneInfo$feature_id))]
 geneInfo = geneInfo[which(!(geneInfo$feature_id %in% toDrop)),]
 
@@ -56,6 +67,10 @@ testCombinations = NULL
 nGenes = opt$n_genes
 startPos = 0
 endOffset = 1000000000
+
+
+
+
 
 lines = NULL
 for(chr in unique(geneInfo$chromosome)){
