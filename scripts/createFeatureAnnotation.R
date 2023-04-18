@@ -52,7 +52,7 @@ if(opt$feature_name=="ENSG"){
 }
 
 if(opt$autosomes_only){
-  geneInfo = geneInfo[which(geneInfo$chromosome %in% c(1:22),]
+  geneInfo = geneInfo[which(geneInfo$chromosome %in% c(1:22)),]
 }
 
 ##drop all genes that have the same names, to avoid having issues with matching and mapping after.
