@@ -25,7 +25,7 @@ sampleMappingFile = config["WG3_folder"]+'input/smf.txt'
 winFiles = os.listdir(config["WG3_folder"]+'input/WindowsFiles')
 
 topDirInput = config["WG3_folder"]+'input'
-bgen_folder = config["WG3_folder"]+ 'genotype_input/'
+bgen_folder = config["WG3_folder"]+ 'genotype_input'
 
 topDirInput+"/LDMatrices/chr_{chrom}_window_{num}_{start}_{end}.pkl"
 
