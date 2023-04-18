@@ -83,8 +83,7 @@ rule run_qtl_mapping:
             " -c -gm gaussnorm "
             " -w {params.w} "
             " -hwe {params.hwe} "
-            " -rs .8 "
-            " -rc ")
+            " -rs .8 ")
 
 rule top_feature:
     input:
