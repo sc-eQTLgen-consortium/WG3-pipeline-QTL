@@ -34,7 +34,9 @@ print(f"\nRunning LD window script on chromosome {CHROM}\n")
 print('reading and preparing gene features file..')
 
 gene_info = pd.read_table(input_filepath_feature)
+gene_info["chromosome"] = gene_info["chromosome"].astype(str)
 gene_info = gene_info.loc[gene_info["chromosome"]==CHROM]
+
 ##Add midpoint
 gene_info["mid"] = gene_info["start"] +((gene_info["end"]-gene_info["start"])/2)
 ##Sort on start.
@@ -46,7 +48,6 @@ print("Creating LD windows..")
 windows = {}
 n = 0 # variable which defines key in windows dictionary
 start = False # variable required for first loop.
-end = False # variable required for last step in the loop.
 for i in range(gene_info.shape[0]):
     if start == False:
       win_start = gene_info['start'].iloc[i] - gene_window
@@ -65,17 +66,16 @@ for i in range(gene_info.shape[0]):
       win_start = gene_info['start'].iloc[i] - gene_window
       block = win_start + window_size
       end = int(gene_info['end'].iloc[i])
-
-if start != False:
-    ##Adding the last block
-    win_end = end + gene_window
-    windows[str(n)] = {}
-    windows[str(n)]['range'] = [win_start, win_end]
-    windows[str(n)]['SNPs'] = []
+    
+    if i == (gene_info.shape[0]-1):
+        ##Adding the last block
+        win_end = end + gene_window
+        windows[str(n)] = {}
+        windows[str(n)]['range'] = [win_start, win_end]
+        windows[str(n)]['SNPs'] = []
 
 ##### WRITE EACH WINDOW TO FILE #####
 
 for i in windows:
     with open(f"{filepath_out}/chr_{CHROM}_window_{i}_{windows[i]['range'][0]}_{windows[i]['range'][1]}.pkl", 'wb') as fp:
         pickle.dump(windows[i], fp)
-
