@@ -46,7 +46,7 @@ print("Creating LD windows..")
 windows = {}
 n = 0 # variable which defines key in windows dictionary
 start = False # variable required for first loop.
-end = FALSE # variable required for last step in the loop.
+end = False # variable required for last step in the loop.
 for i in range(gene_info.shape[0]):
     if start == False:
       win_start = gene_info['start'].iloc[i] - gene_window
