@@ -71,7 +71,7 @@ for SNP in SNP_position_by_chromosome[CHROM]:
     progress = f"Progress:" + f" {round((n/total_SNPs)*100)}%"
     n+=1
     print(progress, end='\r')
-    if int(SNP) > window['range'][0] and int(SNP) < window['range'][1]:
+    if int(SNP) >= window['range'][0] and int(SNP) <= window['range'][1]:
         index_SNP = myBdoseChrom[myBdoseChrom['position'] == SNP].index[0]
         window['SNPs'].append(int(index_SNP))
 
