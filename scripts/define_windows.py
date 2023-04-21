@@ -65,6 +65,11 @@ for i in range(gene_info.shape[0]):
       block = win_start + window_size
       end = int(gene_info['end'].iloc[i])
 
+##Adding the last block
+win_end = end + gene_window
+windows[str(n)] = {}
+windows[str(n)]['range'] = [win_start, win_end]
+windows[str(n)]['SNPs'] = []
 
 ##### WRITE EACH WINDOW TO FILE #####
 
