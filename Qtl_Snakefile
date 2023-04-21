@@ -45,7 +45,7 @@ rule all:
         expand(outputFolder/"{ct}"/"qtl.h5.tgz", ct=celltypes),
         expand(outputFolder/"{ct}"/"qtl.annotation.tgz", ct=celltypes),
         expand(outputFolder/"{ct}"/"qtl.permutations.tgz", ct=celltypes),
-        expand(topDirInput+"/LDMatrices/{winF}",winF=winFiles)
+        outputFolder/"LDMatrices.tgz"
     output:
         touch(expand(outputFolder/"{ct}"/"done.txt", ct=celltypes))
 
@@ -158,3 +158,14 @@ rule LD_per_window:
         mkdir -p {topDirInput}/LDMatrices
         singularity exec --bind {includeDir} {imageDir}/wp3.simg python {scripts_folder}/process_LD_windows.py {topDirInput} {input.bdose_file} {input.window} {wildcards.chrom} {params.out}
         """
+
+rule compress_ld:
+    input:
+        ldWindows = ldWindows
+    output:
+        outputFolder/"LDMatrices.tgz"
+    params:
+        topDirInput+"/LDMatrices"
+    shell: 
+        "tar -czf {output} {params}"
+    ##&& rm -rf {params.idir}
