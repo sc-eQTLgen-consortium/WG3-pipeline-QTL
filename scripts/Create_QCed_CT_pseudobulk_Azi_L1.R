@@ -130,7 +130,9 @@ if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
     }
     ##Grab meta.data
     meta.d.full = as.data.frame(pbmc@meta.data[which(cellCts == ct),])
-    meta.d = unique(meta.d.full[,which(colnames(meta.d.full) %in% relCol)])
+    meta.d = meta.d.full[,which(colnames(meta.d.full) %in% relCol)]
+    rownames(meta.d) = NULL
+    meta.d = unique(meta.d)
     ##Grab the countmatrix
     countMatrixFull <- GetAssayData(pbmc[,which(cellCts == ct)], slot = "counts")
     countMatrix = countMatrixFull[which(rowSums(countMatrixFull)!=0),]
