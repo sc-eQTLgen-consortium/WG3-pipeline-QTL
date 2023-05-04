@@ -86,9 +86,9 @@ rule bgen_metadata_files:
         genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.bgen"
     priority: 50
     output:
-        temp(genotype_folder+"outputs/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.z"),
-        temp(genotype_folder+"outputs/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.sample"),
-        temp(genotype_folder+"outputs/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen_master.txt"),
+        temp(genotype_folder+"/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.z"),
+        temp(genotype_folder+"/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.sample"),
+        temp(genotype_folder+"/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen_master.txt"),
         genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.metafile"
     shell:
         "singularity exec --bind {top_dir} {image_folder}wp3.simg python {scripts_folder}make_z.py {input} {genotype_folder}"
