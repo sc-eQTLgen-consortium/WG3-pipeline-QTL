@@ -73,6 +73,9 @@ rm(pbmc_fn,pbmc_metadata_fn,pbmc_psam_fn)
 pbmcMetaD["celltype.l1"] = pbmcMetaD$predicted.celltype.l1
 pbmcMetaD$celltype.l1[which(pbmcMetaD$celltype.l1!=pbmcMetaD$scpred.l1.prediction)] = NA
 
+#Remove all the cells that are disconcordant for L1 celltypes
+pbmcMetaD = pbmcMetaD[which(!(is.na(pbmcMetaD$celltype.l1))),]
+
 #Filtering to cells to keep, based on cell type and tag.
 pbmcMetaD  = pbmcMetaD[which(pbmcMetaD$tag=="NotOutlier"),]
 pbmcMetaD  = pbmcMetaD[which(pbmcMetaD$celltype.l1 != "Doublet"),]
@@ -116,10 +119,11 @@ if(aggregate_fun!='mean'){
 print(all(colnames(pbmc)==pbmcMetaD$Barcode))
 tmpMd = cbind(pbmc@meta.data,pbmcMetaD)
 
+						   
 if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
   pbmc@meta.data = pbmcMetaD
   rm(pbmcMetaD,psamMetaD)
-  cellCts = pbmc$celltype.l1
+  cellCts = pbmc@meta.data[,cellLevel]
   ctList = unique(na.omit(cellCts))
   
   ##Temporary save Seurate object.
@@ -133,6 +137,7 @@ if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
     meta.d = meta.d.full[,which(colnames(meta.d.full) %in% relCol)]
     rownames(meta.d) = NULL
     meta.d = unique(meta.d)
+	
     ##Grab the countmatrix
     countMatrixFull <- GetAssayData(pbmc[,which(cellCts == ct)], slot = "counts")
     countMatrix = countMatrixFull[which(rowSums(countMatrixFull)!=0),]
@@ -228,10 +233,12 @@ if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
       }
     }
   }
+									
   ##Write one folder up.
   write.table(tmpMd,paste0(gsub("L1","",opt$out_dir),"/AllMetaData.debug.txt"),quote=F,sep="\t",row.names=F)
   ##Write one folder up.
   smf = unique(tmpMd[,c("IID","Donor_Pool")])
   colnames(smf)=c("genotype_id","phenotype_id")
   write.table(smf,paste0(gsub("L1","",opt$out_dir),"/smf.txt"),quote=F,sep="\t",row.names=F)
+   
 }
