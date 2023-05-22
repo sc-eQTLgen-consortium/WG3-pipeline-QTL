@@ -10,6 +10,8 @@ option_list = list(
               help="Number of genes to test in one QTL map job. "),
   make_option(c("--feature_name"), action="store", default="GeneName",
               help="The feature_id used in the expression matrix."),
+  make_option(c("--biotype_flag"), action="store", default="gene_biotype",
+              help="The feature_id used in the expression matrix."),
   make_option(c("--autosomes_only"), action="store_true", default=FALSE, type='character',
               help="Flag to only keep autosomal genes, default false. "),
   make_option(c("--out_dir"), action="store", default=NA, type='character',
@@ -40,8 +42,13 @@ ensgIdLoc = which(startsWith(partialMatrix[[1]],"gene_id"))
 gtfInfo["ENSG"] = gsub( "gene_id ","",unlist(lapply(partialMatrix,"[[",ensgIdLoc)))
 nameLoc = which(startsWith(partialMatrix[[1]],"gene_name"))
 gtfInfo["Gene_Name"] = gsub( "gene_name ","",unlist(lapply(partialMatrix,"[[",nameLoc)))
-btLoc = which(startsWith(partialMatrix[[1]],"gene_biotype"))
-gtfInfo["biotype"] = gsub("gene_biotype ","",unlist(lapply(partialMatrix,"[[",btLoc)))
+if(opt$biotype_flag!="NA"){
+	btLoc = which(startsWith(partialMatrix[[1]],opt$biotype_flag))
+	gtfInfo["biotype"] = gsub(paste(opt$biotype_flag," ",sep=""),"",unlist(lapply(partialMatrix,"[[",btLoc)))
+} else {
+	gtfInfo["biotype"] = NA
+}
+
 
 if(opt$feature_name=="ENSG"){
   geneInfo = gtfInfo[,c(10,1,4,5,11,12)]
