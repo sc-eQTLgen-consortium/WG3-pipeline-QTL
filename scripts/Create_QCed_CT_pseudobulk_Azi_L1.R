@@ -14,7 +14,7 @@ option_list = list(
               help="cell specific annotation."),
   make_option(c("--wg1_imputed_genotypes"), action="store", default=NA, type='character',
               help="sample genotype stats file."),
-  make_option(c("--cell_level"), action="store", default="l1", type='character',
+  make_option(c("--cell_level"), action="store", default="celltype.l1", type='character',
               help="Azimuth l1 or l2."),
   make_option(c("--aggregate_fun"), action="store", default='mean', type='character',
               help="sum or mean --> if mean, we need to normalize before."),
@@ -119,10 +119,13 @@ if(aggregate_fun!='mean'){
 print(all(colnames(pbmc)==pbmcMetaD$Barcode))
 tmpMd = cbind(pbmc@meta.data,pbmcMetaD)
 
+cellLevel <- opt$cell_level
+
 						   
 if(all(colnames(pbmc)==pbmcMetaD$Barcode)){
   pbmc@meta.data = pbmcMetaD
   rm(pbmcMetaD,psamMetaD)
+																														 
   cellCts = pbmc@meta.data[,cellLevel]
   ctList = unique(na.omit(cellCts))
   
