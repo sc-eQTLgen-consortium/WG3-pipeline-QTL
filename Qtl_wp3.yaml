@@ -5,8 +5,8 @@
 ###### The following arguments are for indicating file locations on your system #####
 #####################################################################################
 
-image_folder: /groups/umcg-franke-scrna/tmp01/users/umcg-mjbonder/ ### The path to the folder within which the simgularity image & "wp3.simg" "limixDec22.simg" is located
-top_dir: /groups/umcg-franke-scrna/tmp01/ ### Thhis folder will be bound to Singularty (needs to be highr up then every data item.
+image_folder: /groups/umcg-franke-scrna/tmp01/users/umcg-mjbonder/ ### The path to the folder within which the singularity image & "wp3.simg" "limixDec22.simg" is located
+top_dir: /groups/umcg-franke-scrna/tmp01/ ### This folder will be bound to Singularty (needs to be higher up then every data item).
 
 #####################################
 ##       input files/folders       ###
@@ -19,7 +19,7 @@ out_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipel
 ######################################
 numberOfPermutations: '1000'
 minorAlleleFrequency: '0.01'
-windowSize: '1000000' #gene + cis window from one side
+windowSize: '1000000' # gene + cis window from one side
 hardyWeinbergCutoff: '0.0001'
 compressFiles: true
 
