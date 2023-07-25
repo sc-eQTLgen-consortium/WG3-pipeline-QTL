@@ -35,9 +35,9 @@ input_filepath_bdose  = f"{str(sys.argv[2])}"
 
 outfile = filepath_out[:-4] #removes file extenstion (.pkl)
 
-outfile_low_dim = f'{outfile}_low_dim.pkl'
-outfile_components = f'{outfile}_components.pkl'
-outfile_means = f'{outfile}_means.pkl'
+outfile_low_dim = f'{outfile}_low_dim.pkl.gz'
+outfile_components = f'{outfile}_components.pkl.gz'
+outfile_means = f'{outfile}_means.pkl.gz'
 
 
 """
@@ -97,15 +97,15 @@ if len(window["SNPs"])>0 :
     components = pca.components_
     means = pca.mean_
     print(f"Shape of lower_dim_data: {lower_dimensional_data.shape}")
-    with open(outfile_low_dim, 'ab') as outp:
+    with gzip.open(outfile_low_dim, 'ab') as outp:
         pickle.dump(lower_dimensional_data, outp)
     outp.close()
     print(f"Shape of components: {components.shape}")
-    with open(outfile_components, 'ab') as outp:
+    with gzip.open(outfile_components, 'ab') as outp:
         pickle.dump(components, outp)
     outp.close()
     print(f"Shape of means: {means.shape}\n")
-    with open(outfile_means, 'ab') as outp:
+    with gzip.open(outfile_means, 'ab') as outp:
          pickle.dump(means, outp)
     outp.close()
 
