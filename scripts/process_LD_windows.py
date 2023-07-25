@@ -76,6 +76,8 @@ for SNP in SNP_position_by_chromosome[CHROM]:
         window['SNPs'].extend(index_SNP)
 
 
+window['SNPs'] = np.unique(window['SNPs'])
+
 ### calculating LD and saving output file
 print("Calculating LD and saving output file..")
 f = open(outfile_low_dim, 'w') # this will clear the contents of the file
