@@ -15,10 +15,10 @@ import pandas as pd
 import gzip
 import pickle
 from ldstore.bdose import bdose
-from sklearn.datasets import fetch_openml
+#from sklearn.datasets import fetch_openml
 from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import r2_score
+#from sklearn.preprocessing import StandardScaler
+#from sklearn.metrics import r2_score
 
 """
 GLOBAL VARIABLES
@@ -72,8 +72,8 @@ for SNP in SNP_position_by_chromosome[CHROM]:
     n+=1
     print(progress, end='\r')
     if int(SNP) >= window['range'][0] and int(SNP) <= window['range'][1]:
-        index_SNP = myBdoseChrom[myBdoseChrom['position'] == SNP].index[0]
-        window['SNPs'].append(int(index_SNP))
+        index_SNP = myBdoseChrom[myBdoseChrom['position'] == SNP].index.values
+        window['SNPs'].extend(index_SNP)
 
 
 ### calculating LD and saving output file
