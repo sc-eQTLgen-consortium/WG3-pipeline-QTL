@@ -17,7 +17,7 @@ out_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipel
 ######################################
 ######        Do not change      #####
 ######################################
-numberOfPermutations: '1000'
+numberOfPermutations: '100'
 minorAlleleFrequency: '0.01'
 windowSize: '1000000' # gene + cis window from one side
 hardyWeinbergCutoff: '0.0001'
