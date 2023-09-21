@@ -1,186 +1,312 @@
-CHROM = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22']
-configfile: "wp3.yaml"
+#!/usr/bin/env python
+CHROMOSOMES = [str(chr) for chr in range(1, 23)]
 
-image_folder = config["image_folder"]
-top_dir = config["top_dir"]
-wg1_folder = config["WG1_folder"]
-wg2_folder = config["WG2_folder"]
-wg3_folder = config["WG3_folder"]
-singlet_assigned_seurat = config["wg1SingletsAssigned"]
-wg1_psam = config["wg1_psam"]
-wg1_wg2_combined_tag =  config["wg1_wg2_qc_taged"]
-genotype_folder = wg3_folder+config["genotype_dir"]
-genotype_merged_by_ancestry = config["ancestry_split_vcf"]
-genotype_input_file = f"{wg1_folder}{genotype_merged_by_ancestry}EUR_imputed_hg38.vcf.gz"
-
-scripts_folder = "/tools/WG3-pipeline-QTL/scripts/" ##Need to replace this.
-unimputed_file = config["unimputed_folder"]
-raw_genotype = f"{unimputed_file}"
-
-expressionMetaD = wg3_folder+"input/AllMetaData.debug.txt"
-sampleMappingFile = wg3_folder+'input/smf.txt'
-
-kinshipFile = wg3_folder+"input/sample.kinship"
-genotypeSampleInfo = genotype_folder+"EUR_imputed_hg38_stats.samples.gz"
-cellAnnotationFile = config["cellAnnotation"]
-inclusion_files = expand(genotype_folder+"EUR_imputed_hg38_inclusion_{chrom}.vars", chrom=CHROM)
-ld_chunks = expand(wg3_folder+"input/WindowsFilesChecks/chr_{chrom}_windows_defined.txt", chrom=CHROM) 
-bgenMeta = expand(genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.metafile", chrom=CHROM)
-
-
-annoFile = wg3_folder+'input/LimixAnnotationFile.txt'
-chunkFile = wg3_folder+'input/ChunkingFile.txt'
+# TODO: remove trailing / if from file paths.
 
 rule all:
     input:
-        bgenMeta, expressionMetaD, kinshipFile, chunkFile, annoFile, sampleMappingFile, ld_chunks
+        expand(config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.metafile", chr=CHROMOSOMES),
+        config["outputs"]["output_dir"] + "input/AllMetaData.debug.txt",
+        config["outputs"]["output_dir"] + "input/sample.kinship",
+        config["outputs"]["output_dir"] + "input/ChunkingFile.txt",
+        config["outputs"]["output_dir"] + "input/LimixAnnotationFile.txt",
+        config["outputs"]["output_dir"] + "input/smf.txt",
+        expand(config["outputs"]["output_dir"] + "input/WindowsFilesChecks/chr_{chr}_windows_defined.txt", chr=CHROMOSOMES)
 
 
+# TODO: make gzip explicit
 rule Genotype_IO:
     input:
-        genotype_input_file
+        vcf = config["inputs"]["wg1_folder"] + config["inputs_extra"]["relative_ancestry_split_path"] + "EUR_imputed_hg38.vcf.gz"
     output:
-        genotype_folder+"EUR_imputed_hg38_stats.vars.gz",
-        genotype_folder+"EUR_imputed_hg38_stats.samples.gz",
-        genotype_input_file+".tbi"
+        compressed_vcf = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats.vars.gz",
+        vcf_samples = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats.samples.gz"
+    resources:
+        java_mem = lambda wildcards, attempt: attempt * config["create_input"]["genotype_io_java_memory"],
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["genotype_io_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["genotype_io_memory"]
+    threads: config["create_input"]["genotype_io_threads"]
+    params:
+        bind = config["inputs"]["bind_path"],
+        sif = config["inputs"]["singularity_image"],
+        jar = "/tools/Genotype-IO-1.0.6-SNAPSHOT-jar-with-dependencies.jar",
+        out = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats"
+    log: config["outputs"]["output_dir"] + "logs/genotype_io.chr_{chr}.log"
     shell:
         """
-        singularity exec --bind {top_dir} {image_folder}wp3.simg tabix -p vcf  {genotype_input_file}
-        singularity exec --bind {top_dir} {image_folder}wp3.simg java -Xmx5g -Xms5g -jar /tools/Genotype-IO-1.0.6-SNAPSHOT-jar-with-dependencies.jar -I VCF -i {genotype_input_file} -o {genotype_folder}EUR_imputed_hg38_stats
-        gzip {genotype_folder}EUR_imputed_hg38_stats*
+        singularity exec --bind {params.bind} {params.sif} tabix -p vcf {input.vcf}
+        singularity exec --bind {params.bind} {params.sif} java -Xmx{resources.java_mem}g -Xms{resources.java_mem}g -jar {params.jar} \
+            -I VCF \
+            -i {input.vcf} \
+            -o {params.out}
+        gzip {params.out}*
         """
 
 
 rule ProcessOutputR:
     input:
-        compressedVcf = genotype_folder+"EUR_imputed_hg38_stats.vars.gz",
-        vcfIndex = genotype_input_file+".tbi"
-    params:
-        outD = genotype_folder
+        compressed_vcf = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats.vars.gz",
     output:
-        temp(inclusion_files),
-        outGenotypeLog = genotype_folder+"EUR_imputed_hg38_stats_filtered.vars.gz"
+        vars = temp(expand(config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_inclusion_{chr}.vars", chr=CHROMOSOMES)),
+    resources:
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["process_output_r_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["process_output_r_memory"]
+    threads: config["create_input"]["process_output_r_threads"]
+    params:
+        bind = config["inputs"]["bind_path"],
+        sif = config["inputs"]["singularity_image"],
+        script = "/tools/WG3-pipeline-QTL/scripts/process_output.R",
+        out = config["outputs"]["output_dir"] + "genotype_input"
+    log: config["outputs"]["output_dir"] + "logs/process_output_r.log"
     shell:
         """
-        singularity exec --bind {top_dir} {image_folder}wp3.simg Rscript {scripts_folder}process_output.R {input.compressedVcf} {params.outD}EUR_imputed_hg38_stats_filtered.vars {params.outD}EUR_imputed_hg38_inclusion_
-        gzip {params.outD}EUR_imputed_hg38_stats_filtered.vars
+        singularity exec --bind {params.bind} {params.sif} Rscript {params.script} \
+            {input.compressed_vcf} \
+            {params.out}EUR_imputed_hg38_stats_filtered.vars \
+            {params.out}EUR_imputed_hg38_inclusion_
+        gzip {params.out}EUR_imputed_hg38_stats_filtered.vars
         """
 
 
+# TODO: WTF waarom gzip de log file?
 rule GenotypeHarmonizer:
     input:
-        genotype_folder+"EUR_imputed_hg38_inclusion_{chrom}.vars"
+        vcf = config["inputs"]["wg1_folder"] + config["inputs_extra"]["relative_ancestry_split_path"] + "EUR_imputed_hg38.vcf.gz",
+        vars = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_inclusion_{chr}.vars"
     output:
-        genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.bgen"
+        config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr{chr}.bgen"
+    resources:
+        java_mem = lambda wildcards, attempt: attempt * config["create_input"]["genotype_harmonizer_java_memory"],
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["genotype_harmonizer_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["genotype_harmonizer_memory"]
+    threads: config["create_input"]["genotype_harmonizer_threads"]
     params:
-        log=genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.log",
-        no_ext=genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}"
+        bind = config["inputs"]["bind_path"],
+        sif = config["inputs"]["singularity_image"],
+        jar = "/tools/GenotypeHarmonizer-1.4.27-SNAPSHOT/GenotypeHarmonizer.jar",
+        no_ext = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr{chr}"
+    log: config["outputs"]["output_dir"] + "logs/genotype_harmonizer.chr_{chr}.log"
     shell:
         """
-        singularity exec --bind {top_dir} {image_folder}wp3.simg java -Xmx10g -Xms10g -jar /tools/GenotypeHarmonizer-1.4.27-SNAPSHOT/GenotypeHarmonizer.jar -vf {input}  -i {genotype_input_file} -I VCF -O BGEN -o {params.no_ext} --genotypeField DS
-        gzip {params.log}
+        singularity exec --bind {params.bind} {params.sif} java -Xmx{resources.java_mem}g -Xms{resources.java_mem}g -jar {params.jar} \
+            -vf {input.vars} \
+            -i {input.vcf} \
+            -I VCF \
+            -O BGEN \
+            -o {params.no_ext} \
+            --genotypeField DS
+        gzip {log}
         """
+
 
 rule bgen_metadata_files:
-    input:
-        genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.bgen"
     priority: 50
+    input:
+        config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen"
     output:
-        temp(genotype_folder+"/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.z"),
-        temp(genotype_folder+"/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.sample"),
-        temp(genotype_folder+"/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen_master.txt"),
-        genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.metafile"
+        temp(config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.z"),
+        temp(config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.sample"),
+        temp(config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen_master.txt"),
+        config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.metafile"
+    resources:
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["bgen_metadata_files_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["bgen_metadata_files_memory"]
+    threads: config["create_input"]["bgen_metadata_files_threads"]
+    params:
+        bind = config["inputs"]["bind_path"],
+        sif = config["inputs"]["singularity_image"],
+        script = "/tools/WG3-pipeline-QTL/scripts/make_z.py",
+        out = config["outputs"]["output_dir"] + "genotype_input"
+    log: config["outputs"]["output_dir"] + "logs/bgen_metadata_files.chr_{chr}.log"
     shell:
-        "singularity exec --bind {top_dir} {image_folder}wp3.simg python {scripts_folder}make_z.py {input} {genotype_folder}"
+        """
+        singularity exec --bind {params.bind} {params.sif} python {params.script} \
+            {input} \
+            {params.out}"
+        """
 
 
+# TODO check input?
 rule kinship:
     input:
-        raw_genotype+".pgen",
-        raw_genotype+".psam",
-        raw_genotype+".pvar"
-    params:
-        mainOut = wg3_folder+"genotypeR/raw_filtered"
+        pgen = config["inputs"]["unimputed_folder_folder"] + ".pgen",
+        psam = config["inputs"]["unimputed_folder_folder"] + ".psam",
+        pvar = config["inputs"]["unimputed_folder_folder"] + ".pvar"
     output:
-         temp(wg3_folder+"genotypeR/raw_filtered.king")
-    run:
-        shell("mkdir -p {wg3_folder}genotypeR")
-        shell("singularity exec --bind {top_dir} {image_folder}wp3.simg /tools/plink2 --pfile {raw_genotype} --maf 0.05 --hwe 1e-6 --make-pgen --out {wg3_folder}genotypeR/raw_filtered")
-        shell("singularity exec --bind {top_dir} {image_folder}wp3.simg /tools/plink2 --pfile {wg3_folder}genotypeR/raw_filtered --indep-pairwise 250 50 0.2 --bad-ld --out {wg3_folder}genotypeR/raw_filtered")
-        shell("singularity exec --bind {top_dir} {image_folder}wp3.simg /tools/plink2 --pfile {wg3_folder}genotypeR/raw_filtered --extract {wg3_folder}genotypeR/raw_filtered.prune.in --make-king square --out {params.mainOut}")
+         king = temp(config["outputs"]["output_dir"]+"genotypeR/raw_filtered.king")
+    resources:
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["kinship_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["kinship_memory"]
+    threads: config["create_input"]["kinship_threads"]
+    params:
+        bind = config["inputs"]["bind_path"],
+        sif = config["inputs"]["singularity_image"],
+        maf = config["create_input_extra"]["kinship_maf"],
+        hwe = config["create_input_extra"]["kinship_hwe"],
+        out = config["outputs"]["output_dir"] + "genotypeR"
+    log: config["outputs"]["output_dir"] + "logs/kinship.log"
+    shell:
+        """
+        mkdir -p {params.out}
+        singularity exec --bind {params.bind} {params.sif} /tools/plink2 \
+            --threads {threads} \
+            --pgen {input.pgen} \
+            --pvar {input.pvar} \
+            --psam {input.psam} \
+            --maf {params.maf} \
+            --hwe {params.hwe} \
+            --make-pgen \
+            --out {params.out}/raw_filtered
+
+        singularity exec --bind {params.bind} {params.sif} /tools/plink2 \
+            --pfile {params.out}/raw_filtered \
+            --indep-pairwise 250 50 0.2 \
+            --bad-ld \
+            --out {params.out}/raw_filtered
+
+        singularity exec --bind {params.bind} {params.sif} /tools/plink2 \
+            --pfile {params.out}/raw_filtered \
+            --extract {params.out}/raw_filtered.prune.in \
+            --make-king square \
+            --out {params.mainOut}/raw_filtered
+        """
 
 
 rule kinshipR:
-    input:
-        wg3_folder+"genotypeR/raw_filtered.king"
     priority: 50
+    input:
+        king = config["outputs"]["output_dir"]+"genotypeR/raw_filtered.king",
+        king_id = config["outputs"]["output_dir"]+"genotypeR/raw_filtered.king.id"
     output:
-        kinshipFile
-    run:
-        shell("singularity exec --bind {top_dir} {image_folder}wp3.simg Rscript {scripts_folder}kinship.R {input} {input}.id {output}")
-        shell("rm -r {wg3_folder}genotypeR/")
+        kinship = config["outputs"]["output_dir"]+"input/sample.kinship"
+    resources:
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["kinship_r_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["kinship_r_memory"]
+    threads: config["create_input"]["kinship_r_threads"]
+    params:
+        bind = config["inputs"]["bind_path"],
+        sif = config["inputs"]["singularity_image"],
+        script = "/tools/WG3-pipeline-QTL/scripts/kinship.R",
+        out = config["outputs"]["output_dir"] + "genotypeR"
+    log: config["outputs"]["output_dir"] + "logs/kinship_r.log"
+    shell:
+        """
+        singularity exec --bind {params.bind} {params.sif} Rscript {params.script} \
+            {input.king} \
+            {input.king_id} \
+            {output.kinship}
+        
+        rm -r {params.out}
+        """
 
 
 rule derived_summarized_metadata:
     input:
-        wg2_folder
-    params:
-        wg3_folder
+        in_dir = config["wg2_folder"]
     output:
-        wg3_folder+wg1_wg2_combined_tag
-    run:
-        shell("singularity exec --bind {top_dir} {image_folder}/wp3.simg Rscript /tools/wg1-qc_filtering/QC_statistics_final.R "
-            " --in_dir {input} "
-            " --out_dir {params} ")
+        config["outputs"]["output_dir"] + "WG1_WG2_summary/qc_tag.rds"
+    resources:
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["derived_summarized_metadata_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["derived_summarized_metadata_memory"]
+    threads: config["create_input"]["derived_summarized_metadata_threads"]
+    params:
+        bind = config["inputs"]["bind_path"],
+        sif = config["inputs"]["singularity_image"],
+        script = "/tools/wg1-qc_filtering/QC_statistics_final.R",
+        out = config["outputs"]["output_dir"]
+    log: config["outputs"]["output_dir"] + "logs/derived_summarized_metadata.log"
+    shell:
+        """
+        singularity exec --bind {params.bind} {params.sif} Rscript {script} \
+            " --in_dir {input.in_dir} "
+            " --out_dir {params.out}
+        """
+
 
 rule derive_expression_matrices:
     input:
-        wg1 = wg1_folder+singlet_assigned_seurat,
-        psam_wg1 = wg1_folder+wg1_psam,
-        imputedSampleInfo = genotypeSampleInfo,
-        cellInfo = cellAnnotationFile,
-        summarizedMetaD = wg3_folder+wg1_wg2_combined_tag
-    params:
-        outD = wg3_folder+"input/L1/"
+        wg1 = config["inputs"]["wg1_folder"] + config["relative_wg1_singlets_assigned"],
+        psam_wg1 = config["inputs"]["wg1_folder"] + config["inputs"]["relative_wg1_psam"],
+        summarized_meta_dir = config["outputs"]["output_dir"] + "WG1_WG2_summary/qc_tag.rds",
+        imputed_sample_info = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats.samples.gz",
+        cell_info = config["inputs"]["cell_annotation"],
     output:
-        temp(wg3_folder+"input/L1/tmpFiltered.Seurat.Rds"),
-        wg3_folder+"input/AllMetaData.debug.txt",
-        wg3_folder+"input/smf.txt"
-    run:
-        shell("mkdir -p {params.outD}")
-        shell("singularity exec --bind {top_dir} {image_folder}/wp3.simg Rscript /tools/WG3-pipeline-QTL/scripts/Create_QCed_CT_pseudobulk_Azi_L1.R "
-            " --wg1_data {input.wg1} "
-            " --wg1_psam {input.psam_wg1} "
-            " --metadata {input.summarizedMetaD} "
-            " --wg1_imputed_genotypes {input.imputedSampleInfo} "
-            " --cell_annotation {input.cellInfo} "
-            " --out_dir {params.outD} ")
+        temp(config["outputs"]["output_dir"] + "input/L1/tmpFiltered.Seurat.Rds"),
+        config["outputs"]["output_dir"] + "input/AllMetaData.debug.txt",
+        config["outputs"]["output_dir"] + "input/smf.txt"
+    resources:
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["derive_expression_matrices_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["derive_expression_matrices_memory"]
+    threads: config["create_input"]["derive_expression_matrices_threads"]
+    params:
+        bind = config["inputs"]["bind_path"],
+        sif = config["inputs"]["singularity_image"],
+        out = config["outputs"]["output_dir"] + "input/L1/",
+        script = "/tools/WG3-pipeline-QTL/scripts/Create_QCed_CT_pseudobulk_Azi_L1.R"
+    log: config["outputs"]["output_dir"] + "logs/derive_expression_matrices.log"
+    shell:
+        """
+        mkdir -p {params.out}
+        singularity exec --bind {params.bind} {params.sif} Rscript {params.script} \
+            --wg1_data {input.wg1} \
+            --wg1_psam {input.psam_wg1} \
+            --metadata {input.summarized_meta_dir} \
+            --wg1_imputed_genotypes {input.imputed_sample_info} \
+            --cell_annotation {input.cell_info} \
+            --out_dir {params.out}
+        """
+
 
 rule derived_feature_annotation_and_chunks:
     input:
-        config["gtf_annotation_file"]
-    params:
-        nChunks = config["number_of_genes_in_chunk"],
-        outFolder = wg3_folder+"input/"
+        gtf = config["ref"]["gtf_annotation_file"]
     output:
-        wg3_folder+'input/LimixAnnotationFile.txt',
-        wg3_folder+'input/ChunkingFile.txt'
-    run:
-        shell("singularity exec --bind {top_dir} {image_folder}/wp3.simg Rscript {scripts_folder}createFeatureAnnotation.R "
-            " --in_gtf {input} "
-            " --n_genes {params.nChunks} "
-            " --out_dir {params.outFolder} "
-            " --autosomes_only ")
+        config["outputs"]["output_dir"] + "input/LimixAnnotationFile.txt",
+        config["outputs"]["output_dir"] + "input/ChunkingFile.txt"
+    resources:
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["derived_feature_annotation_and_chunks_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["derived_feature_annotation_and_chunks_memory"]
+    threads: config["create_input"]["derived_feature_annotation_and_chunks_threads"]
+    params:
+        bind = config["inputs"]["bind_path"],
+        sif = config["inputs"]["singularity_image"],
+        script = "/tools/WG3-pipeline-QTL/scripts/createFeatureAnnotation.R",
+        n_genes = config["create_input_extra"]["derived_feature_annotation_and_chunks_n_chuncks"],
+        out = config["outputs"]["output_dir"] + "input/"
+    log: config["outputs"]["output_dir"] + "logs/derived_feature_annotation_and_chunks.log"
+    shell:
+        """
+        singularity exec --bind {params.bind} {params.sif} Rscript {params.script} \
+            --in_gtf {input.gtf} \
+            --n_genes {params.n_genes} \
+            --out_dir {params.out} \
+            --autosomes_only
+        """
+
 
 rule defWindows:
     input:
-        feature_file = annoFile
+        feature_file = config["outputs"]["output_dir"] + "input/LimixAnnotationFile.txt"
     output:
-        wg3_folder+"input/WindowsFilesChecks/chr_{chrom}_windows_defined.txt"
+        config["outputs"]["output_dir"] + "input/WindowsFilesChecks/chr_{chr}_windows_defined.txt"
+    resources:
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["def_windows_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["def_windows_memory"]
+    threads: config["create_input"]["def_windows_threads"]
+    params:
+        bind = config["inputs"]["bind_path"],
+        sif = config["inputs"]["singularity_image"],
+        script = "/tools/WG3-pipeline-QTL/scripts/define_windows.py",
+        out = config["outputs"]["output_dir"] + "input/WindowsFiles",
+        out_checks = config["outputs"]["output_dir"] + "input/WindowsFilesChecks"
+    log: config["outputs"]["output_dir"] + "logs/def_windows.log"
     shell:
         """
-        mkdir -p {wg3_folder}/input/WindowsFilesChecks
-        mkdir -p {wg3_folder}/input/WindowsFiles
-        singularity exec --bind {top_dir} {image_folder}/wp3.simg python {scripts_folder}/define_windows.py {input.feature_file} {wildcards.chrom} {wg3_folder}/input/WindowsFiles
+        mkdir -p {params.out}
+        mkdir -p {params.out_checks}
+        singularity exec --bind {params.bind} {params.sif} python {params.script} \
+            {input.feature_file} \
+            {wildcards.chrom} \
+            {params.out}
         touch {output}
         """
