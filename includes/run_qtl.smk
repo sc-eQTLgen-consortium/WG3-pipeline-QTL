@@ -35,7 +35,7 @@ rule run_qtl_mapping:
             -af {input.af} \
             -cf {input.cf} \
             -pf {input.pf} \
-            -kf {input.kf} \
+            -rf {input.kf} \
             -smf {input.smf} \
             -od {params.od} \
             -gr {wildcards.chr}:{wildcards.start}-{wildcards.end} \
