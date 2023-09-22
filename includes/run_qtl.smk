@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import os
 
-# TODO: -rf = kf, was that correct?
 rule run_qtl_mapping:
     priority: 10
     input:
@@ -9,9 +8,9 @@ rule run_qtl_mapping:
         cf = config["outputs"]["output_dir" ] + "input/{ct}.qtlInput.Pcs.txt",
         pf = config["outputs"]["output_dir" ] + "input/{ct}.qtlInput.txt",
         kf = config["outputs"]["output_dir" ] + "input/sample.kinship",
-        smf = config["outputs"]["output_dir" ] + "input/smf.txt"
+        smf = config["outputs"]["output_dir" ] + "input/l1/smf.txt"
     output:
-        touch(config["outputs"]["output_dir"] + "output/{ct}/qtl/{chr}_{start}_{end}.finished")
+        touch(config["outputs"]["output_dir"] + "output/{ct}/qtl/chr_{chr}_{start}_{end}.finished")
     resources:
         mem_per_thread_gb = lambda wildcards, attempt: attempt * config["run_qtl"]["run_qtl_mapping_memory"],
         disk_per_thread_gb = lambda wildcards, attempt: attempt * config["run_qtl"]["run_qtl_mapping_memory"]
@@ -51,7 +50,7 @@ rule run_qtl_mapping:
 
 rule top_feature:
     input:
-        expand(config["outputs"]["output_dir"]+ "{ct}/qtl/{chr}_{start}_{end}.finished", zip, chr=chunk_chr, start=chunk_start, end=chunk_end, allow_missing=True)
+        expand(config["outputs"]["output_dir"]+ "output/{ct}/qtl/chr_{chr}_{start}_{end}.finished", ct=CELLTYPES, chr=CHUNK_CHR, start=CHUNK_START, end=CHUNK_END)
     output:
         temp(config["outputs"]["output_dir"] + "output/{ct}/top_qtl_results_all.txt")
     resources:
@@ -78,7 +77,7 @@ rule top_feature:
 rule compress_qtl:
     input:
         topQtl = config["outputs"]["output_dir"] + "output/{ct}/top_qtl_results_all.txt",
-        qtlChunks = expand(config["outputs"]["output_dir"]+ "{ct}/qtl/{chr}_{start}_{end}.finished", zip, chr=chunk_chr, start=chunk_start, end=chunk_end, allow_missing=True)
+        qtlChunks = expand(config["outputs"]["output_dir"]+ "output/{ct}/qtl/chr_{chr}_{start}_{end}.finished", ct=CELLTYPES, chr=CHUNK_CHR, start=CHUNK_START, end=CHUNK_END)
     output:
         h5 = config["outputs"]["output_dir"] + "output/{ct}/qtl.h5.tgz",
         anno = config["outputs"]["output_dir"] + "output/{ct}/qtl.annotation.tgz",
@@ -96,31 +95,6 @@ rule compress_qtl:
     shell:
         """
         singularity exec --bind {params.bind} {params.sif} tar -czf {output.h5} {params.dir}/*.h5 && find {params.dir} | grep '\.pickle.gz$' > {params.dir}/files.txt &&  tar cf {output.perm} -T {params.dir}/files.txt && tar -cf {output.anno} {params.dir}/*.txt.gz && gzip {input.topQtl}
-        """
-
-
-rule make_temporary_files:
-    input:
-        bgen_file = config["outputs"]["output_dir" ]+ "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen"
-    output:
-        temp(config["outputs"]["output_dir" ]+ "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.z"),
-        temp(config["outputs"]["output_dir" ]+ "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.sample"),
-        temp(config["outputs"]["output_dir" ]+ "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen_master.txt")
-    resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["run_qtl"]["make_temporary_files_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["run_qtl"]["make_temporary_files_memory"]
-    threads: config["run_qtl"]["make_temporary_files_threads"]
-    params:
-        bind = config["inputs"]["bind_path"],
-        sif = config["inputs"]["singularity_image"],
-        script = "/tools/WG3-pipeline-QTL/scripts/make_z.py",
-        in_dir = config["outputs"]["output_dir" ] + "genotype_input"
-    log: config["outputs"]["output_dir"] + "logs/make_temporary_files.chr_{chr}.log"
-    shell:
-        """
-        singularity exec --bind {params.bind} {params.sif} python {params.script} \
-            {input.bgen_file} \
-            {params.in_dir}
         """
 
 
@@ -157,10 +131,10 @@ rule LD_per_window:
         bdose_file = config["outputs"]["output_dir" ] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.bdose",
         window = config["outputs"]["output_dir" ] + "input/WindowsFiles/chr_{chr}_window_{num}_{start}_{end}.pkl"
     output:
-        config["outputs"]["output_dir" ] + "input/LDMatrices/chr_{chr}_window_{num}_{start}_{end}_means.pkl.gz",
-        config["outputs"]["output_dir" ] + "input/LDMatrices/chr_{chr}_window_{num}_{start}_{end}_low_dim.pkl.gz",
-        config["outputs"]["output_dir" ] + "input/LDMatrices/chr_{chr}_window_{num}_{start}_{end}_components.pkl.gz",
-        touch(config["outputs"]["output_dir" ] + "input/LDMatrices/chr_{chr}_window_{num}_{start}_{end}.pkl.gz")
+        low_dim = config["outputs"]["output_dir"] + "input/LDMatrices/chr_{chr}_window_{num}_{start}_{end}_low_dim.pkl.gz",
+        components = config["outputs"]["output_dir" ] + "input/LDMatrices/chr_{chr}_window_{num}_{start}_{end}_components.pkl.gz",
+        means = config["outputs"]["output_dir"] + "input/LDMatrices/chr_{chr}_window_{num}_{start}_{end}_means.pkl.gz",
+        data = touch(config["outputs"]["output_dir" ] + "input/LDMatrices/chr_{chr}_window_{num}_{start}_{end}.pkl.gz")
     resources:
         mem_per_thread_gb = lambda wildcards, attempt: attempt * config["run_qtl"]["ld_per_window_memory"],
         disk_per_thread_gb = lambda wildcards, attempt: attempt * config["run_qtl"]["ld_per_window_memory"]
@@ -184,9 +158,16 @@ rule LD_per_window:
         """
 
 
+# TODO: the os.listdir is needed since we don't know the numbering of the windows. However this seems a bit risky since it may include
+#  junk files in the compressed file that are not intended to be there. The commented fix gives a 'No values given for wildcard 'num'' error
+#  since I don't know the window numbering when defining the required input_files for rule all.
 rule compress_ld:
     input:
-        ldWindows = expand(config["outputs"]["output_dir" ] + "input/LDMatrices/{winF}.gz", winF=os.listdir(config["outputs"]["output_dir" ] + "input/WindowsFiles"))
+        dWindows = expand(config["outputs"]["output_dir"] + "input/LDMatrices/{winF}.gz", winF=os.listdir(config["outputs"]["output_dir"] + "input/WindowsFiles"))
+        # low_dim = expand(config["outputs"]["output_dir"] + "input/LDMatrices/chr_{chr}_window_{num}_{start}_{end}_low_dim.pkl.gz", ct=CELLTYPES, chr=CHUNK_CHR, start=CHUNK_START, end=CHUNK_END),
+        # components = expand(config["outputs"]["output_dir" ] + "input/LDMatrices/chr_{chr}_window_{num}_{start}_{end}_components.pkl.gz", ct=CELLTYPES, chr=CHUNK_CHR, start=CHUNK_START, end=CHUNK_END),
+        # means = expand(config["outputs"]["output_dir"] + "input/LDMatrices/chr_{chr}_window_{num}_{start}_{end}_means.pkl.gz", ct=CELLTYPES, chr=CHUNK_CHR, start=CHUNK_START, end=CHUNK_END),
+        # data = expand(config["outputs"]["output_dir" ] + "input/LDMatrices/chr_{chr}_window_{num}_{start}_{end}.pkl.gz", ct=CELLTYPES, chr=CHUNK_CHR, start=CHUNK_START, end=CHUNK_END),
     output:
         config["outputs"]["output_dir"] + "output/LDMatrices.tgz"
     resources:
@@ -196,9 +177,9 @@ rule compress_ld:
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
-        out = config["outputs"]["output_dir" ] + "input/LDMatrices"
+        out = config["outputs"]["output_dir" ] + "LDMatrices.tgz"
     log: config["outputs"]["output_dir"] + "logs/compress_ld.log"
     shell:
         """
-        tar -czf {output} {params.out}"
+        tar -czf {params.out} {input.low_dim} {input.components} {input.means} {input.data}
         """

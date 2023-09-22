@@ -62,9 +62,6 @@ run_qtl:
   compress_qtl_memory: 1 ### Amount of gigs that will be used for memory and disk space per thread
   compress_qtl_threads: 1 ### Number of threads to use
 
-  make_temporary_files_memory: 1 ### Amount of gigs that will be used for memory and disk space per thread
-  make_temporary_files_threads: 1 ### Number of threads to use
-
   create_bdose_file_by_chr_memory: 1 ### Amount of gigs that will be used for memory and disk space per thread
   create_bdose_file_by_chr_threads: 1 ### Number of threads to use
 
@@ -79,8 +76,8 @@ run_qtl:
 ############################################################################################################################################
 inputs_extra:
   relative_ancestry_split_path: "genotype/imputed/vcf_merged_by_ancestries/"
-  relative_wg1_psam: "genotype/unimputed/cytosnp_all_ng2018.psam" ### Relative path, relative to WG1 folder, psam file with donor information including both the user provided information and updates during the WG1 pipeline. (https://wg1-pipeline-qc.readthedocs.io/en/latest/Imputation/Imputation_Required_Input.html#plink2-reference-snp-genotype-pfiles)
-  relative_wg1_singlets_assigned: "demultiplexing/output/QC_figures/seurat_object_all_pools_singlet_barcodes_final_assignments.rds"  ### Relative path to the final singlet file derived from WG1.
+  relative_wg1_psam: "update_sex_ancestry/update_sex.psam" ### Relative path, relative to WG1 folder, psam file with donor information including both the user provided information and updates during the WG1 pipeline. (https://wg1-pipeline-qc.readthedocs.io/en/latest/Imputation/Imputation_Required_Input.html#plink2-reference-snp-genotype-pfiles)
+  relative_wg1_singlets_assigned: "QC_figures/seurat_object_all_pools_singlet_barcodes_final_assignments.rds"  ### Relative path to the final singlet file derived from WG1.
 
 create_input_extra:
   kinship_maf: 0.05
@@ -88,7 +85,7 @@ create_input_extra:
   derived_feature_annotation_and_chunks_n_genes: 500 ### Number of genes to be tested in one genotype chunk.
 
 run_qtl_extra:
-  n_permutation: 100
+  n_permutations: 100
   maf: 0.01
   window_size: 1000000 ### gene + cis window from one side
   hwe_cutoff: 0.0001
