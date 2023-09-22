@@ -7,6 +7,7 @@ refs:
 inputs:
   bind_path: /path/to/bind/to/mount ### List of paths to bind to Singularity. You can specify multiple directories by adding a "," between them. Eg. ${DIRECTORY1},${DIRECTORY2}
   singularity_image: /path/to/singularity/image.sif ### The complete path to the singularity image that has all the softwares
+  limix_singularity_image: /path/to/singularity/image.sif ### The complete path to the singularity image that has all the softwares
   unimputed_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg1-preprocessing/wg1_wijst2018/genotype/unimputed/cytosnp_all_ng2018 ### The path, and base filename to the unimputed genotype file. These are created in WG1 and are in plink2 formats.
   wg1_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg1-preprocessing/wg1_wijst2018/ ### The path to the outputs from WG1
   wg2_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg2-cell-type-classification/wg2_ng2018/ ### The path to the outputs from WG2
@@ -15,12 +16,10 @@ inputs:
 outputs:
   output_dir: /path/to/parent/out/dir ### The path to the parent dir where you would like all outputs/results saved. This path must exist before running.
 
-settings:
-
 ##############################################################################################################
 ##### The following arguments are common parameters that may need to be changed depending on the dataset #####
 ##############################################################################################################
-create_input:
+prepare_input:
   genotype_io_java_memory: 5 ### Memory passed to java for GenotypeHarmonizer.jar in GB.
   genotype_io_memory: 6 ### Amount of gigs that will be used for memory and disk space per thread
   genotype_io_threads: 1 ### Number of threads to use
@@ -53,16 +52,45 @@ create_input:
   def_windows_memory: 1 ### Amount of gigs that will be used for memory and disk space per thread
   def_windows_threads: 1 ### Number of threads to use
 
+run_qtl:
+  run_qtl_mapping_memory: 1 ### Amount of gigs that will be used for memory and disk space per thread
+  run_qtl_mapping_threads: 1 ### Number of threads to use
+
+  top_feature_memory: 1 ### Amount of gigs that will be used for memory and disk space per thread
+  top_feature_threads: 1 ### Number of threads to use
+
+  compress_qtl_memory: 1 ### Amount of gigs that will be used for memory and disk space per thread
+  compress_qtl_threads: 1 ### Number of threads to use
+
+  make_temporary_files_memory: 1 ### Amount of gigs that will be used for memory and disk space per thread
+  make_temporary_files_threads: 1 ### Number of threads to use
+
+  create_bdose_file_by_chr_memory: 1 ### Amount of gigs that will be used for memory and disk space per thread
+  create_bdose_file_by_chr_threads: 1 ### Number of threads to use
+
+  ld_per_window_memory: 1 ### Amount of gigs that will be used for memory and disk space per thread
+  ld_per_window_threads: 1 ### Number of threads to use
+
+  compress_ld_memory: 1 ### Amount of gigs that will be used for memory and disk space per thread
+  compress_ld_threads: 1 ### Number of threads to use
 
 ############################################################################################################################################
 ##### The following arguments in this section should not need to be changed/edited unless the default options do not work your dataset #####
 ############################################################################################################################################
 inputs_extra:
   relative_ancestry_split_path: "genotype/imputed/vcf_merged_by_ancestries/"
-  relative_wg1_psam: genotype/unimputed/cytosnp_all_ng2018.psam ### Relative path, relative to WG1 folder, psam file with donor information including both the user provided information and updates during the WG1 pipeline. (https://wg1-pipeline-qc.readthedocs.io/en/latest/Imputation/Imputation_Required_Input.html#plink2-reference-snp-genotype-pfiles)
-  relative_wg1_singlets_assigned: demultiplexing/output/QC_figures/seurat_object_all_pools_singlet_barcodes_final_assignments.rds  ### Relative path to the final singlet file derived from WG1.
+  relative_wg1_psam: "genotype/unimputed/cytosnp_all_ng2018.psam" ### Relative path, relative to WG1 folder, psam file with donor information including both the user provided information and updates during the WG1 pipeline. (https://wg1-pipeline-qc.readthedocs.io/en/latest/Imputation/Imputation_Required_Input.html#plink2-reference-snp-genotype-pfiles)
+  relative_wg1_singlets_assigned: "demultiplexing/output/QC_figures/seurat_object_all_pools_singlet_barcodes_final_assignments.rds"  ### Relative path to the final singlet file derived from WG1.
 
 create_input_extra:
   kinship_maf: 0.05
   kinship_hwe: 1e-6
   derived_feature_annotation_and_chunks_n_genes: 500 ### Number of genes to be tested in one genotype chunk.
+
+run_qtl_extra:
+  n_permutation: 100
+  maf: 0.01
+  window_size: 1000000 ### gene + cis window from one side
+  hwe_cutoff: 0.0001
+  compress_files: True
+  relatedness_score: 0.8

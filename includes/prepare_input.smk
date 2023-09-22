@@ -1,17 +1,4 @@
 #!/usr/bin/env python
-CHROMOSOMES = [str(chr) for chr in range(1, 23)]
-
-# TODO: remove trailing / if from file paths.
-
-rule all:
-    input:
-        expand(config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.metafile", chr=CHROMOSOMES),
-        config["outputs"]["output_dir"] + "input/AllMetaData.debug.txt",
-        config["outputs"]["output_dir"] + "input/sample.kinship",
-        config["outputs"]["output_dir"] + "input/ChunkingFile.txt",
-        config["outputs"]["output_dir"] + "input/LimixAnnotationFile.txt",
-        config["outputs"]["output_dir"] + "input/smf.txt",
-        expand(config["outputs"]["output_dir"] + "input/WindowsFilesChecks/chr_{chr}_windows_defined.txt", chr=CHROMOSOMES)
 
 
 # TODO: make gzip explicit
@@ -22,10 +9,10 @@ rule Genotype_IO:
         compressed_vcf = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats.vars.gz",
         vcf_samples = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats.samples.gz"
     resources:
-        java_mem = lambda wildcards, attempt: attempt * config["create_input"]["genotype_io_java_memory"],
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["genotype_io_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["genotype_io_memory"]
-    threads: config["create_input"]["genotype_io_threads"]
+        java_mem = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_io_java_memory"],
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_io_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_io_memory"]
+    threads: config["prepare_input"]["genotype_io_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
@@ -49,9 +36,9 @@ rule ProcessOutputR:
     output:
         vars = temp(expand(config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_inclusion_{chr}.vars", chr=CHROMOSOMES)),
     resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["process_output_r_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["process_output_r_memory"]
-    threads: config["create_input"]["process_output_r_threads"]
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["process_output_r_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["process_output_r_memory"]
+    threads: config["prepare_input"]["process_output_r_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
@@ -76,10 +63,10 @@ rule GenotypeHarmonizer:
     output:
         config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr{chr}.bgen"
     resources:
-        java_mem = lambda wildcards, attempt: attempt * config["create_input"]["genotype_harmonizer_java_memory"],
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["genotype_harmonizer_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["genotype_harmonizer_memory"]
-    threads: config["create_input"]["genotype_harmonizer_threads"]
+        java_mem = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_harmonizer_java_memory"],
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_harmonizer_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_harmonizer_memory"]
+    threads: config["prepare_input"]["genotype_harmonizer_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
@@ -109,9 +96,9 @@ rule bgen_metadata_files:
         temp(config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen_master.txt"),
         config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.metafile"
     resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["bgen_metadata_files_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["bgen_metadata_files_memory"]
-    threads: config["create_input"]["bgen_metadata_files_threads"]
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["bgen_metadata_files_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["bgen_metadata_files_memory"]
+    threads: config["prepare_input"]["bgen_metadata_files_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
@@ -133,11 +120,11 @@ rule kinship:
         psam = config["inputs"]["unimputed_folder_folder"] + ".psam",
         pvar = config["inputs"]["unimputed_folder_folder"] + ".pvar"
     output:
-         king = temp(config["outputs"]["output_dir"]+"genotypeR/raw_filtered.king")
+        king = temp(config["outputs"]["output_dir" ] +"genotypeR/raw_filtered.king")
     resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["kinship_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["kinship_memory"]
-    threads: config["create_input"]["kinship_threads"]
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["kinship_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["kinship_memory"]
+    threads: config["prepare_input"]["kinship_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
@@ -175,14 +162,14 @@ rule kinship:
 rule kinshipR:
     priority: 50
     input:
-        king = config["outputs"]["output_dir"]+"genotypeR/raw_filtered.king",
-        king_id = config["outputs"]["output_dir"]+"genotypeR/raw_filtered.king.id"
+        king = config["outputs"]["output_dir" ] + "genotypeR/raw_filtered.king",
+        king_id = config["outputs"]["output_dir" ] + "genotypeR/raw_filtered.king.id"
     output:
-        kinship = config["outputs"]["output_dir"]+"input/sample.kinship"
+        kinship = config["outputs"]["output_dir" ] + "input/sample.kinship"
     resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["kinship_r_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["kinship_r_memory"]
-    threads: config["create_input"]["kinship_r_threads"]
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["kinship_r_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["kinship_r_memory"]
+    threads: config["prepare_input"]["kinship_r_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
@@ -195,7 +182,7 @@ rule kinshipR:
             {input.king} \
             {input.king_id} \
             {output.kinship}
-        
+
         rm -r {params.out}
         """
 
@@ -206,9 +193,9 @@ rule derived_summarized_metadata:
     output:
         config["outputs"]["output_dir"] + "WG1_WG2_summary/qc_tag.rds"
     resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["derived_summarized_metadata_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["derived_summarized_metadata_memory"]
-    threads: config["create_input"]["derived_summarized_metadata_threads"]
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["derived_summarized_metadata_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["derived_summarized_metadata_memory"]
+    threads: config["prepare_input"]["derived_summarized_metadata_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
@@ -235,9 +222,9 @@ rule derive_expression_matrices:
         config["outputs"]["output_dir"] + "input/AllMetaData.debug.txt",
         config["outputs"]["output_dir"] + "input/smf.txt"
     resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["derive_expression_matrices_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["derive_expression_matrices_memory"]
-    threads: config["create_input"]["derive_expression_matrices_threads"]
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["derive_expression_matrices_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["derive_expression_matrices_memory"]
+    threads: config["prepare_input"]["derive_expression_matrices_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
@@ -264,9 +251,9 @@ rule derived_feature_annotation_and_chunks:
         config["outputs"]["output_dir"] + "input/LimixAnnotationFile.txt",
         config["outputs"]["output_dir"] + "input/ChunkingFile.txt"
     resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["derived_feature_annotation_and_chunks_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["derived_feature_annotation_and_chunks_memory"]
-    threads: config["create_input"]["derived_feature_annotation_and_chunks_threads"]
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["derived_feature_annotation_and_chunks_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["derived_feature_annotation_and_chunks_memory"]
+    threads: config["prepare_input"]["derived_feature_annotation_and_chunks_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
@@ -290,9 +277,9 @@ rule defWindows:
     output:
         config["outputs"]["output_dir"] + "input/WindowsFilesChecks/chr_{chr}_windows_defined.txt"
     resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["def_windows_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["create_input"]["def_windows_memory"]
-    threads: config["create_input"]["def_windows_threads"]
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["def_windows_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["def_windows_memory"]
+    threads: config["prepare_input"]["def_windows_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
