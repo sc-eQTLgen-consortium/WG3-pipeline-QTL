@@ -14,7 +14,7 @@ limix_path="singularity exec --bind "+includeDir+" "+imageDir+"limixDec22.simg p
 
 ##QTL mapping variables.
 phenotypeFile = config["WG3_folder"]+'input/{ct}.qtlInput.txt'    # use {ct} to indicate celltype
-genotypeFile= config["WG3_folder"]+ 'genotype_input/EUR_imputed_hg38_varFiltered_chr{chrom}'  # use {chrom} if genotype is splitted by chromosome
+genotypeFile= config["WG3_folder"]+ 'genotype_input/EUR_imputed_hg38_varFiltered_chr{chrom}'  # use {chrom} if genotype is split by chromosome
 covariateFile= config["WG3_folder"]+'input/{ct}.qtlInput.Pcs.txt'
 kinshipFile= config["WG3_folder"]+'input/sample.kinship'
 chunkFile = config["WG3_folder"]+'input/ChunkingFile.txt'
@@ -57,21 +57,22 @@ rule run_qtl_mapping:
         pf = phenotypeFile,
         smf = sampleMappingFile,
         cf = covariateFile,
-        kf = kinshipFile
+        kf = kinshipFile,
+        gen  = genotypeFile,
+        genM = genotypeFile+".bgen.metafile"
         #rf = config["randomeff_files"] if config["randomeff_files"]!='' else []
     output:
         touch(outputFolder/"{ct}"/"qtl"/"{chrom}_{start}_{end}.finished")
     priority:10
     params:
         od = str(outputFolder/"{ct}"/"qtl")+"/",
-        gen  = genotypeFile,
         np = config["numberOfPermutations"],
         maf = config["minorAlleleFrequency"],
         hwe = config["hardyWeinbergCutoff"],
         w = config["windowSize"]
     shell:
         (limix_path + "run_QTL_analysis_metaAnalysis.py "
-            " --bgen {params.gen} "
+            " --bgen {input.gen} "
             " -af {input.af} "
             " -cf {input.cf} "
             " -pf {input.pf} "
@@ -121,7 +122,8 @@ rule make_temporary_files:
     output:
         temp(bgen_folder+"/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.z"),
         temp(bgen_folder+"/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.sample"),
-        temp(bgen_folder+"/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen_master.txt")
+        temp(bgen_folder+"/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen_master.txt"),
+        bgen_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.metafile"
     shell:
         """
         singularity exec --bind {includeDir} {imageDir}/wp3.simg python {scripts_folder}/make_z.py {input.bgen_file} {bgen_folder}
