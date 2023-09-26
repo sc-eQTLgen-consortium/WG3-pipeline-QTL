@@ -1,5 +1,5 @@
 CHROM = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22']
-configfile: "wp3.yaml"
+configfile: "wp3_input_create.yaml"
 
 image_folder = config["image_folder"]
 top_dir = config["top_dir"]
@@ -80,19 +80,6 @@ rule GenotypeHarmonizer:
         singularity exec --bind {top_dir} {image_folder}wp3.simg java -Xmx10g -Xms10g -jar /tools/GenotypeHarmonizer-1.4.27-SNAPSHOT/GenotypeHarmonizer.jar -vf {input}  -i {genotype_input_file} -I VCF -O BGEN -o {params.no_ext} --genotypeField DS
         gzip {params.log}
         """
-
-rule bgen_metadata_files:
-    input:
-        genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.bgen"
-    priority: 50
-    output:
-        temp(genotype_folder+"/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.z"),
-        temp(genotype_folder+"/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.sample"),
-        temp(genotype_folder+"/EUR_imputed_hg38_varFiltered_chr{chrom}.bgen_master.txt"),
-        genotype_folder+"EUR_imputed_hg38_varFiltered_chr{chrom}.bgen.metafile"
-    shell:
-        "singularity exec --bind {top_dir} {image_folder}wp3.simg python {scripts_folder}make_z.py {input} {genotype_folder}"
-
 
 rule kinship:
     input:
