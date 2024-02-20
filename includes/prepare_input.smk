@@ -1,312 +1,242 @@
 #!/usr/bin/env python
+import os
 
-
-rule Genotype_IO:
+rule genotype_io:
     input:
-        vcf = config["inputs"]["wg1_folder"] + config["inputs_extra"]["relative_ancestry_split_path"] + "EUR_imputed_hg38.vcf.gz",
-        index = config["inputs"]["wg1_folder"] + config["inputs_extra"]["relative_ancestry_split_path"] + "EUR_imputed_hg38.vcf.gz.tbi"
+        vcf = config["inputs"]["wg1_genotype_folder"] + config["inputs_extra"]["relative_wg1_imputed_genotype_vcf"],
+        index = config["inputs"]["wg1_genotype_folder"] + config["inputs_extra"]["relative_wg1_imputed_genotype_vcf"] + ".tbi",
     output:
-        vars_gz = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats.vars.gz",
-        samples_gz = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats.samples.gz"
+        vars = config["outputs"]["output_dir"] + "genotype_input/{ancestry}/{ancestry}_imputed_hg38_stats.vars.gz",
+        samples = config["outputs"]["output_dir"] + "genotype_input/{ancestry}/{ancestry}_imputed_hg38_stats.samples.gz"
     resources:
-        java_mem = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_io_java_memory"],
+        java_mem_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_io_memory"] * config["prepare_input"]["genotype_io_threads"] - config["settings_extra"]["java_memory_buffer"],
         mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_io_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_io_memory"]
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_io_memory"],
+        time = lambda wildcards,attempt: config["cluster_time"][(attempt - 1) + config["prepare_input"]["genotype_io_time"]]
     threads: config["prepare_input"]["genotype_io_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
         jar = "/tools/Genotype-IO-1.0.6-SNAPSHOT-jar-with-dependencies.jar",
-        out = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats"
-    log: config["outputs"]["output_dir"] + "logs/genotype_io.log"
+        out = config["outputs"]["output_dir"] + "genotype_input/{ancestry}/{ancestry}_imputed_hg38_stats"
+    log: config["outputs"]["output_dir"] + "log/genotype_io.{ancestry}.log"
     shell:
         """
-        singularity exec --bind {params.bind} {params.sif} java -Xmx{resources.java_mem}g -Xms{resources.java_mem}g -jar {params.jar} \
-            -I VCF \
-            -i {input.vcf} \
-            -o {params.out}
-        gzip {params.out}.vars
-        gzip {params.out}.samples
+        singularity exec --bind {params.bind} {params.sif} java -Xmx{resources.java_mem_gb}g -Xms{resources.java_mem_gb}g -jar {params.jar} \
+            --inputType VCF \
+            --input {input.vcf} \
+            --output {params.out}
+        singularity exec --bind {params.bind} {params.sif} gzip {params.out}.vars
+        singularity exec --bind {params.bind} {params.sif} gzip {params.out}.samples
         """
 
 
-rule ProcessOutputR:
+rule process_output_r:
     input:
-        vars = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats.vars.gz",
+        vars = config["outputs"]["output_dir"] + "genotype_input/{ancestry}/{ancestry}_imputed_hg38_stats.vars.gz"
     output:
-        vars = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats_filtered.vars",
-        vars_per_chr = temp(expand(config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_inclusion_chr_{chr}.vars", chr=CHROMOSOMES)),
-        vars_gz = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats_filtered.vars.gz",
+        vars = config["outputs"]["output_dir"] + "genotype_input/{ancestry}/{ancestry}_imputed_hg38_stats_filtered.vars.gz",
+        vars_per_chr = temp(expand(config["outputs"]["output_dir"] + "genotype_input/{ancestry}/{ancestry}_imputed_hg38_inclusion_{chr}.vars", chr=CHROMOSOMES, allow_missing=True))
     resources:
         mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["process_output_r_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["process_output_r_memory"]
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["process_output_r_memory"],
+        time = lambda wildcards,attempt: config["cluster_time"][(attempt - 1) + config["prepare_input"]["process_output_r_time"]]
     threads: config["prepare_input"]["process_output_r_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
-        script = "/tools/WG3-pipeline-QTL/scripts/process_output.R",
-        out = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_inclusion_chr_"
-    log: config["outputs"]["output_dir"] + "logs/process_output_r.log"
+        script = config["inputs"]["repo_dir"] + "scripts/process_output.R",
+        maf = config["prepare_input_extra"]["process_output_r_maf"],
+        r2 = config["prepare_input_extra"]["process_output_r_r2"],
+        call = config["prepare_input_extra"]["process_output_r_call"],
+        out = config["outputs"]["output_dir"] + "genotype_input/{ancestry}/"
+    log: config["outputs"]["output_dir"] + "log/process_output_r.{ancestry}.log"
     shell:
         """
         singularity exec --bind {params.bind} {params.sif} Rscript {params.script} \
-            {input.vars} \
-            {output.vars} \
-            {params.out}
-        gzip {output.vars}
+            --input {input.vars} \
+            --maf {params.maf} \
+            --r2 {params.r2} \
+            --call {params.call} \
+            --out {params.out}
         """
 
 
-rule GenotypeHarmonizer:
+rule genotype_harmonizer:
     input:
-        vcf = config["inputs"]["wg1_folder"] + config["inputs_extra"]["relative_ancestry_split_path"] + "EUR_imputed_hg38.vcf.gz",
-        index = config["inputs"]["wg1_folder"] + config["inputs_extra"]["relative_ancestry_split_path"] + "EUR_imputed_hg38.vcf.gz.tbi",
-        vars = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_inclusion_chr_{chr}.vars"
+        vcf = config["inputs"]["wg1_genotype_folder"] + config["inputs_extra"]["relative_wg1_imputed_genotype_vcf"],
+#        index = config["inputs"]["wg1_genotype_folder"] + config["inputs_extra"]["relative_wg1_imputed_genotype_vcf"] + ".csi",
+        vars = config["outputs"]["output_dir"] + "genotype_input/{ancestry}/{ancestry}_imputed_hg38_inclusion_{chr}.vars"
     output:
-        bgen = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen",
-        bgi = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.bgi"
+        log = config["outputs"]["output_dir"] + "genotype_input/{ancestry}/{ancestry}_imputed_hg38_varFiltered_chr{chr}.log",
+        bgen = config["outputs"]["output_dir"] + "genotype_input/{ancestry}/{ancestry}_imputed_hg38_varFiltered_chr{chr}.bgen",
+        bgi = config["outputs"]["output_dir"] + "genotype_input/{ancestry}/{ancestry}_imputed_hg38_varFiltered_chr{chr}.bgen.bgi"
     resources:
-        java_mem = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_harmonizer_java_memory"],
+        java_mem_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_harmonizer_memory"] * config["prepare_input"]["genotype_harmonizer_threads"] - config["settings_extra"]["java_memory_buffer"],
         mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_harmonizer_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_harmonizer_memory"]
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["genotype_harmonizer_memory"],
+        time = lambda wildcards,attempt: config["cluster_time"][(attempt - 1) + config["prepare_input"]["genotype_harmonizer_time"]]
     threads: config["prepare_input"]["genotype_harmonizer_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
         jar = "/tools/GenotypeHarmonizer-1.4.27-SNAPSHOT/GenotypeHarmonizer.jar",
-        no_ext = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}"
-    log: config["outputs"]["output_dir"] + "logs/genotype_harmonizer.chr_{chr}.log"
+        output = config["outputs"]["output_dir"] + "genotype_input/{ancestry}/{ancestry}_imputed_hg38_varFiltered_chr{chr}"
+    log: config["outputs"]["output_dir"] + "log/genotype_harmonizer.{ancestry}.chr_{chr}.log"
     shell:
         """
-        singularity exec --bind {params.bind} {params.sif} java -Xmx{resources.java_mem}g -Xms{resources.java_mem}g -jar {params.jar} \
-            -vf {input.vars} \
-            -i {input.vcf} \
-            -I VCF \
-            -O BGEN \
-            -o {params.no_ext} \
+        singularity exec --bind {params.bind} {params.sif} java -Xmx{resources.java_mem_gb}g -Xms{resources.java_mem_gb}g -jar {params.jar} \
+            --variantFilterList {input.vars} \
+            --input {input.vcf} \
+            --inputType VCF \
+            --outputType BGEN \
+            --output {params.output} \
             --genotypeField DS
-        """
-
-
-rule bgen_metadata_files:
-    priority: 50
-    input:
-        bgen = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen",
-        bgi = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.bgi"
-    output:
-        z = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.z",
-        sample = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.sample",
-        master = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen_master.txt",
-        metafile = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_varFiltered_chr_{chr}.bgen.metafile"
-    resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["bgen_metadata_files_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["bgen_metadata_files_memory"]
-    threads: config["prepare_input"]["bgen_metadata_files_threads"]
-    params:
-        bind = config["inputs"]["bind_path"],
-        sif = config["inputs"]["singularity_image"],
-        script = "/tools/WG3-pipeline-QTL/scripts/make_z.py",
-        out = config["outputs"]["output_dir"] + "genotype_input"
-    log: config["outputs"]["output_dir"] + "logs/bgen_metadata_files.chr_{chr}.log"
-    shell:
-        """
-        singularity exec --bind {params.bind} {params.sif} python {params.script} \
-            {input.bgen} \
-            {params.out}"
         """
 
 
 rule kinship:
     input:
-        pgen = config["inputs"]["unimputed_folder"] + ".pgen",
-        psam = config["inputs"]["unimputed_folder"] + ".psam",
-        pvar = config["inputs"]["unimputed_folder"] + ".pvar"
+        vcf = config["inputs"]["wg1_genotype_folder"] + config["inputs_extra"]["relative_wg1_het_filtered"]
     output:
-        king = temp(config["outputs"]["output_dir" ] + "genotypeR/raw_filtered.king"),
-        king_id = temp(config["outputs"]["output_dir"] + "genotypeR/raw_filtered.king.id")
+        subset_pgen = temp(config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_subset.pgen"),
+        subset_pvar = temp(config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_subset.pvar"),
+        subset_psam = temp(config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_subset.psam"),
+        subset_log = config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_subset.log",
+        prune_in = temp(config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_subset_pruning.prune.in"),
+        prune_out = temp(config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_subset_pruning.prune.out"),
+        prune_log = config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_subset_pruning.log",
+        pruned_log = config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_subset_pruned.log",
+        king = temp(config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_subset_pruned.king"),
+        king_id = temp(config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_subset_pruned.king.id"),
+        kinship = config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_sample.kinship"
     resources:
+        plink_mem_mb = lambda wildcards, attempt: (attempt * config["prepare_input"]["kinship_memory"] * config["prepare_input"]["kinship_threads"] - config["settings_extra"]["plink_memory_buffer"]) * 1000,
         mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["kinship_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["kinship_memory"]
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["kinship_memory"],
+        time = lambda wildcards, attempt: config["cluster_time"][(attempt - 1) + config["prepare_input"]["kinship_time"]]
     threads: config["prepare_input"]["kinship_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
-        maf = config["create_input_extra"]["kinship_maf"],
-        hwe = config["create_input_extra"]["kinship_hwe"],
-        out = config["outputs"]["output_dir"] + "genotypeR/raw_filtered"
-    log: config["outputs"]["output_dir"] + "logs/kinship.log"
+        genome_build = config["settings"]["genome_build"],
+        maf = config["prepare_input_extra"]["kinship_maf"],
+        hwe = config["prepare_input_extra"]["kinship_hwe"],
+        out_subset = config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_subset",
+        indep_window_size = config["prepare_input_extra"]["kinship_indep_window_size"],
+        indep_step_size = config["prepare_input_extra"]["kinship_indep_step_size"],
+        pairwise_r2_threshold = config["prepare_input_extra"]["kinship_pairwise_r2_threshold"],
+        out_pruning = config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_subset_pruning",
+        out_pruned = config["outputs"]["output_dir"] + "kinship/{ancestry}/{ancestry}_subset_pruned",
+        script = config["inputs"]["repo_dir"] + "scripts/kinship.R",
+    log: config["outputs"]["output_dir"] + "log/kinship.{ancestry}.log"
     shell:
-        """
-        mkdir -p {params.out}
-        singularity exec --bind {params.bind} {params.sif} /tools/plink2 \
+        """        
+        singularity exec --bind {params.bind} {params.sif} plink2 \
+            --memory {resources.plink_mem_mb} \
             --threads {threads} \
-            --pgen {input.pgen} \
-            --pvar {input.pvar} \
-            --psam {input.psam} \
+            --vcf {input.vcf} \
+            --split-par {params.genome_build} \
             --maf {params.maf} \
             --hwe {params.hwe} \
             --make-pgen \
-            --out {params.out}
+            --out {params.out_subset}
 
-        singularity exec --bind {params.bind} {params.sif} /tools/plink2 \
-            --pfile {params.out} \
-            --indep-pairwise 250 50 0.2 \
+        singularity exec --bind {params.bind} {params.sif} plink2 \
+            --memory {resources.plink_mem_mb} \
+            --pgen {output.subset_pgen} \
+            --pvar {output.subset_pvar} \
+            --psam {output.subset_psam} \
+            --indep-pairwise {params.indep_window_size} {params.indep_step_size} {params.pairwise_r2_threshold} \
             --bad-ld \
-            --out {params.out}
+            --out {params.out_pruning}
 
-        singularity exec --bind {params.bind} {params.sif} /tools/plink2 \
-            --pfile {params.out} \
-            --extract {params.out}.prune.in \
+        singularity exec --bind {params.bind} {params.sif} plink2 \
+            --memory {resources.plink_mem_mb} \
+            --pgen {output.subset_pgen} \
+            --pvar {output.subset_pvar} \
+            --psam {output.subset_psam} \
+            --extract {output.prune_in} \
             --make-king square \
-            --out {params.out}
+            --out {params.out_pruned}
+            
+        singularity exec --bind {params.bind} {params.sif} Rscript {params.script} \
+            --king {output.king} \
+            --king_id {output.king_id} \
+            --out {output.kinship}
         """
 
 
-rule kinshipR:
-    priority: 50
+# WG1: imputed VCF file + metadata file (pool, barcode, singlet / doublet, assignment) per pool
+# WG2: metadata file (pool, barcode, cell annotation)
+# L2 -> L1 mapping is added.
+#
+# Calculate nfeatures_RNA, ncounts_RNA, complexity (nfeatures_RNA) / ncounts_RNA, percent.mt, percent.rb per pool
+rule create_seurat:
     input:
-        king = config["outputs"]["output_dir" ] + "genotypeR/raw_filtered.king",
-        king_id = config["outputs"]["output_dir" ] + "genotypeR/raw_filtered.king.id"
+        poolsheet = config["inputs"]["poolsheet_path"],
+        cell_annotation = config["inputs"]["cell_annotation_file"],
+        wg1_metadata = config["inputs"]["wg1_demultiplex_folder"] + config["inputs_extra"]["relative_wg1_metadata"],
+        wg1_psam = config["inputs"]["wg1_genotype_folder"] + config["inputs_extra"]["relative_wg1_psam"],
+        wg2_metadata = config["inputs"]["wg2_folder"] + config["inputs_extra"]["relative_wg2_metadata"],
+        rb_genes = config["refs"]["ref_dir"] + config["refs_extra"]["ribosomal_genes"],
+        mt_genes = config["refs"]["ref_dir"] + config["refs_extra"]["mitochondrial_genes"]
     output:
-        kinship = config["outputs"]["output_dir" ] + "input/sample.kinship"
+        seurat = config["outputs"]["output_dir"] + "expression_input/pools/{pool}.rds",
+        metadata = config["outputs"]["output_dir"] + "expression_input/pools/{pool}.metadata.tsv.gz"
     resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["kinship_r_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["kinship_r_memory"]
-    threads: config["prepare_input"]["kinship_r_threads"]
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["create_seurat_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["create_seurat_memory"],
+        time = lambda wildcards,attempt: config["cluster_time"][(attempt - 1) + config["prepare_input"]["create_seurat_time"]]
+    threads: config["prepare_input"]["create_seurat_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
-        script = "/tools/WG3-pipeline-QTL/scripts/kinship.R",
-        out = config["outputs"]["output_dir"] + "genotypeR"
-    log: config["outputs"]["output_dir"] + "logs/kinship_r.log"
+        script = config["inputs"]["repo_dir"] + "scripts/create_seurat.R",
+        wg2_pairing = "--wg2_pairing " + config["refs"]["ref_dir"] + config["refs_extra"]["wg2_pairing"] if os.path.exists(config["refs"]["ref_dir"] + config["refs_extra"]["wg2_pairing"]) else "",
+        out = config["outputs"]["output_dir"] + "expression_input/pools/"
+    log: config["outputs"]["output_dir"] + "log/create_seurat.{pool}.log"
     shell:
         """
         singularity exec --bind {params.bind} {params.sif} Rscript {params.script} \
-            {input.king} \
-            {input.king_id} \
-            {output.kinship}
-        """
-
-
-# TODO: switch back the rds files as required input. Can't do this right now since my dataset does not have these files.
-rule derived_summarized_metadata:
-    input:
-        # metadata_reduced_data = config["inputs"]["wg2_folder"] + "step4_reduce/metadata.reduced_data.RDS",
-        # reduced_data = config["inputs"]["wg2_folder"] + "step4_reduce/reduced_data.RDS",
-        in_dir = config["inputs"]["wg2_folder"]
-    output:
-        qc_tag = config["outputs"]["output_dir"] + "WG1_WG2_summary/qc_tag.rds"
-    resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["derived_summarized_metadata_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["derived_summarized_metadata_memory"]
-    threads: config["prepare_input"]["derived_summarized_metadata_threads"]
-    params:
-        bind = config["inputs"]["bind_path"],
-        sif = config["inputs"]["singularity_image"],
-        script = "/tools/wg1-qc_filtering/QC_statistics_final.R",
-        in_dir = config["inputs"]["wg2_folder"],
-        out = config["outputs"]["output_dir"]
-    log: config["outputs"]["output_dir"] + "logs/derived_summarized_metadata.log"
-    shell:
-        """
-        singularity exec --bind {params.bind} {params.sif} Rscript {script} \
-            " --in_dir {params.in_dir} "
-            " --out_dir {params.out}
-        """
-
-
-rule derive_expression_matrices:
-    input:
-        wg1_data = config["inputs"]["wg1_folder"] + config["inputs_extra"]["relative_wg1_singlets_assigned"],
-        wg1_psam = config["inputs"]["wg1_folder"] + config["inputs_extra"]["relative_wg1_psam"],
-        metadata = config["outputs"]["output_dir"] + "WG1_WG2_summary/qc_tag.rds",
-        wg1_imputed_genotypes = config["outputs"]["output_dir"] + "genotype_input/EUR_imputed_hg38_stats.samples.gz",
-        cell_annotation = config["inputs"]["cell_annotation"],
-    output:
-        tmp_filtered_rds = temp(config["outputs"]["output_dir"] + "input/L1/tmpFiltered.Seurat.Rds"),
-        normalized_rds = expand(config["outputs"]["output_dir"] + "input/{ct}.Qced.Normalized.SCs.Rds",ct=CELLTYPES),
-        exp = expand(config["outputs"]["output_dir"] + "input/{ct}.Exp.txt", ct=CELLTYPES),
-        covariates = expand(config["outputs"]["output_dir"] + "input/{ct}.covariates.txt",ct=CELLTYPES),
-        pf = expand(config["outputs"]["output_dir"] + "input/{ct}.qtlInput.txt", ct=CELLTYPES),
-        cf = expand(config["outputs"]["output_dir"] + "input/{ct}.qtlInput.Pcs.txt",ct=CELLTYPES),
-        metadata = config["outputs"]["output_dir"] + "input/L1/AllMetaData.debug.txt",
-        smf = config["outputs"]["output_dir"] + "input/L1/smf.txt"
-    resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["derive_expression_matrices_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["derive_expression_matrices_memory"]
-    threads: config["prepare_input"]["derive_expression_matrices_threads"]
-    params:
-        bind = config["inputs"]["bind_path"],
-        sif = config["inputs"]["singularity_image"],
-        out = config["outputs"]["output_dir"] + "input/L1/",
-        script = "/tools/WG3-pipeline-QTL/scripts/Create_QCed_CT_pseudobulk_Azi_L1.R"
-    log: config["outputs"]["output_dir"] + "logs/derive_expression_matrices.log"
-    shell:
-        """
-        mkdir -p {params.out}
-        singularity exec --bind {params.bind} {params.sif} Rscript {params.script} \
-            --wg1_data {input.wg1_data} \
-            --wg1_psam {input.wg1_psam} \
-            --metadata {input.metadata} \
-            --wg1_imputed_genotypes {input.wg1_imputed_genotypes} \
+            --poolsheet {input.poolsheet} \
+            --pool {wildcards.pool} \
             --cell_annotation {input.cell_annotation} \
+            --wg1_metadata {input.wg1_metadata} \
+            --wg2_metadata {input.wg2_metadata} \
+            {params.wg2_pairing} \
+            --wg1_psam {input.wg1_psam} \
+            --rb_genes {input.rb_genes} \
+            --mt_genes {input.mt_genes} \
             --out_dir {params.out}
         """
 
 
-rule derived_feature_annotation_and_chunks:
+rule feature_annotation:
     input:
         gtf = config["refs"]["gtf_annotation_file"]
     output:
-        annot_file = config["outputs"]["output_dir"] + "input/LimixAnnotationFile.txt",
-        chunk_file = config["outputs"]["output_dir"] + "input/ChunkingFile.txt"
+        feature_file = config["outputs"]["output_dir"] + "annot_input/{ancestry}/LimixAnnotationFile.txt"
     resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["derived_feature_annotation_and_chunks_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["derived_feature_annotation_and_chunks_memory"]
-    threads: config["prepare_input"]["derived_feature_annotation_and_chunks_threads"]
+        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["feature_annotation_memory"],
+        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["feature_annotation_memory"],
+        time = lambda wildcards,attempt: config["cluster_time"][(attempt - 1) + config["prepare_input"]["feature_annotation_time"]]
+    threads: config["prepare_input"]["feature_annotation_threads"]
     params:
         bind = config["inputs"]["bind_path"],
         sif = config["inputs"]["singularity_image"],
-        script = "/tools/WG3-pipeline-QTL/scripts/createFeatureAnnotation.R",
-        n_genes = config["create_input_extra"]["derived_feature_annotation_and_chunks_n_genes"],
-        out = config["outputs"]["output_dir"] + "input/"
-    log: config["outputs"]["output_dir"] + "logs/derived_feature_annotation_and_chunks.log"
+        script = config["inputs"]["repo_dir"] + "scripts/create_feature_file.R",
+        feature_name = config["prepare_input_extra"]["feature_annotation_feature_name"],
+        biotype_flag = config["prepare_input_extra"]["feature_annotation_biotype_flag"],
+        autosomes_only = "--autosomes_only " if config["prepare_input_extra"]["feature_annotation_autosomes_only"] else "",
+        out = config["outputs"]["output_dir"] + "annot_input/{ancestry}/"
+    log: config["outputs"]["output_dir"] + "log/feature_annotation.{ancestry}.log"
     shell:
         """
         singularity exec --bind {params.bind} {params.sif} Rscript {params.script} \
             --in_gtf {input.gtf} \
-            --n_genes {params.n_genes} \
-            --out_dir {params.out} \
-            --autosomes_only
-        """
-
-
-# WindowsFilesChecks are not the real files outputted but just tmp files to trick
-# snakemake
-rule defWindows:
-    input:
-        feature_file = config["outputs"]["output_dir"] + "input/LimixAnnotationFile.txt"
-    output:
-        windows = config["outputs"]["output_dir"] + "input/WindowsFilesChecks/chr_{chr}_windows_defined.txt",
-        # windows = expand(config["outputs"]["output_dir"] + "input/WindowsFiles/chr_{chr}_window_{num}_{start}_{end}.pkl", ct=CELLTYPES, chr=CHUNK_CHR, start=CHUNK_START, end=CHUNK_END)
-    resources:
-        mem_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["def_windows_memory"],
-        disk_per_thread_gb = lambda wildcards, attempt: attempt * config["prepare_input"]["def_windows_memory"]
-    threads: config["prepare_input"]["def_windows_threads"]
-    params:
-        bind = config["inputs"]["bind_path"],
-        sif = config["inputs"]["singularity_image"],
-        script = "/tools/WG3-pipeline-QTL/scripts/define_windows.py",
-        out = config["outputs"]["output_dir"] + "input/WindowsFiles",
-        out_checks = config["outputs"]["output_dir"] + "input/WindowsFilesChecks"
-    log: config["outputs"]["output_dir"] + "logs/def_windows.chr_{chr}.log"
-    shell:
-        """
-        mkdir -p {params.out}
-        mkdir -p {params.out_checks}
-        singularity exec --bind {params.bind} {params.sif} python {params.script} \
-            {input.feature_file} \
-            {wildcards.chrom} \
-            {params.out}
-        touch {output.windows}
+            --feature_name {params.feature_name} \
+            --biotype_flag {params.biotype_flag} \
+            {params.autosomes_only} \
+            --out_dir {params.out}
         """

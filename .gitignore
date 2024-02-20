@@ -1,8 +1,3 @@
-scripts/minimal_postprocess.py
-scripts/QC_statistics_final.R
-scripts/qtl_loader_utils.py
-scripts/qtl_output.py
-scripts/qtl_parse_args.py
-scripts/qtl_snp_qc.py
-scripts/qtl_utilities.py
-scripts/run_QTL_analysis_metaAnalysis.py
+data/*
+scripts/limixDec22/*
+scripts/MJB/*

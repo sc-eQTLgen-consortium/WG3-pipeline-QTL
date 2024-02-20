@@ -7,38 +7,41 @@ About:      This code is designed to generate a z file as described in LDstore2
 
 """ MODULE IMPORTS """
 
-import sys
-import gzip
+import argparse
 from bgen_reader import read_bgen
 
 
 """ GLOBAL VARIABLES """
 
 """input"""
-in_filepath = str(sys.argv[1])
-out_filepath = str(sys.argv[2])
-infilename = in_filepath.split("/")[len(in_filepath.split("/"))-1] #makes filepath into a list, each folder is an item, and selects the final item (the name of the file)
+parser = argparse.ArgumentParser(description="")
+parser.add_argument("--in_filepath", required=True, type=str, help="")
+parser.add_argument("--out", required=True, type=str, help="")
+args = parser.parse_args()
 
-filepath_bgen = in_filepath
+print("Options in effect:")
+for arg in vars(args):
+    print("  --{} {}".format(arg, getattr(args, arg)))
+print("")
 
 """output"""
-filepath_output_z      = f'{out_filepath}/{infilename}.z'
-filepath_output_sample = f'{out_filepath}/{infilename}.sample'
-filepath_output_master = f'{out_filepath}/{infilename}_master.txt'
+filepath_output_z      = f'{args.out}.z'
+filepath_output_sample = f'{args.out}.sample'
+filepath_output_master = f'{args.out}_master.txt'
 
 
 """ FILE LOCATIONS FOR MASTER FILE """
 
 z_file            = f"{filepath_output_z}"
-bgen_file         = f"{in_filepath}"
-bgi_file          = f"{in_filepath}.bgi"
+bgen_file         = f"{args.in_filepath}"
+bgi_file          = f"{args.in_filepath}.bgi"
 sample_file       = f"{filepath_output_sample}"
-bdose_file_output = f"{out_filepath}/{infilename}.bdose"
+bdose_file_output = f"{args.out}.bdose"
 
 
 """ READ INPUT VCF """
 
-bgen = read_bgen(filepath_bgen, verbose=False)
+bgen = read_bgen(args.in_filepath, verbose=False)
 variant = bgen["variants"].compute()
 
 data_z = {}

@@ -1,0 +1,186 @@
+##############################################################################################################
+##### The following arguments need to be changed by the user to indicating file locations on your system #####
+##############################################################################################################
+inputs:
+  bind_path: /path/to/bind/to/mount ### List of paths to bind to Singularity. You can specify multiple directories by adding a "," between them. Eg. ${DIRECTORY1},${DIRECTORY2}
+  singularity_image: /path/to/singularity/image.sif ### The complete path to the singularity image that has all the pipeline softwares
+  limix_singularity_image: /path/to/singularity/image.sif ### The complete path to the singularity image that has all the LIMIX softwares
+  repo_dir: /path/to/repo/dir/ ### Path to the github repository directory
+  poolsheet_path: /path/to/sample/metadata/file.tsv ### tab separated file that has a header. Each line has a pool name used for the scRNA-seq directories and the number of individuals in each pool
+  cell_annotation_file: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/Wijst_2018_cell_annotation.tsv ### The cell annotation file
+  wg1_genotype_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg1-preprocessing/wg1_wijst2018/ ### The path to the genotype outputs from WG1
+  wg1_demultiplex_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg1-preprocessing/wg1_wijst2018/ ### The path to the demultiplexing / doublet detection outputs from WG1
+  wg2_folder: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg2-cell-type-classification/wg2_ng2018/ ### The path to the outputs from WG2
+
+refs:
+  ref_dir: /path/to/provided/ref/dir/ ### This is the path to the directory containing the imputation references provided for the SNP processing and imputation
+  gtf_annotation_file: /groups/umcg-franke-scrna/tmp01/external_datasets/refdata-cellranger-GRCh38-3.0.0/genes/genes.gtf ### GTF file path used when quantifying gene-expression
+
+outputs:
+  output_dir: /path/to/parent/out/dir ### The path to the parent dir where you would like all outputs/results saved. This path must exist before running
+
+settings:
+  ancestry: "EUR" ### Which ancestry to use
+  cell_level: "L1" ### The cell annotation on which to aggregate
+  cell_types: [B, CD4_T, CD8_T, DC, Mono, NK, Eryth, HSPC, ILC, Platelet, Other_T] ### The cell types to process
+  genome_build: "hg19" ### Genome build of the UNIMPUTED raw input VCF!!!!
+  save_all_samples: True ### Safe all expression samples from the poolsheet into a combined seurat object regardless of ancestry.
+  calculate_qtl: True ### Calculate eQTLs.
+  output_flat_qtl_results: False ### Summarise the h5 eQTL output files into a flat format.
+  calculate_ld: True ### Calculate LD matrices.
+
+cluster_time: {0: "05:59:00", 1: "23:59:00", 2: "6-23:59:00"} ### Options for dynamic time usage for cluster submissions of jobs
+
+##############################################################################################################
+##### The following arguments are common parameters that may need to be changed depending on the dataset #####
+##############################################################################################################
+prepare_input:
+  genotype_io_memory: 8 ### Amount of gigs that will be used for memory and disk space per thread
+  genotype_io_threads: 1 ### Number of threads to use
+  genotype_io_time: 0 ### The time setting to use
+
+  process_output_r_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  process_output_r_threads: 1 ### Number of threads to use
+  process_output_r_time: 0 ### The time setting to use
+
+  genotype_harmonizer_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  genotype_harmonizer_threads: 1 ### Number of threads to use
+  genotype_harmonizer_time: 0 ### The time setting to use
+
+  kinship_memory: 4 ### Amount of gigs that will be used for memory and disk space per thread
+  kinship_threads: 1 ### Number of threads to use
+  kinship_time: 0 ### The time setting to use
+
+  create_seurat_memory: 32 ### Amount of gigs that will be used for memory and disk space per thread
+  create_seurat_threads: 1 ### Number of threads to use
+  create_seurat_time: 0 ### The time setting to use
+
+  feature_annotation_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  feature_annotation_threads: 1 ### Number of threads to use
+  feature_annotation_time: 0 ### The time setting to use
+
+quality_control:
+  barcode_qc_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  barcode_qc_threads: 1 ### Number of threads to use
+  barcode_qc_time: 0 ### The time setting to use
+
+  barcode_qc_plots_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  barcode_qc_plots_threads: 1 ### Number of threads to use
+  barcode_qc_plots_time: 0 ### The time setting to use
+
+  create_expression_matrices_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  create_expression_matrices_threads: 1 ### Number of threads to use
+  create_expression_matrices_time: 0 ### The time setting to use
+
+  prepare_eqtl_input_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  prepare_eqtl_input_threads: 1 ### Number of threads to use
+  prepare_eqtl_input_time: 0 ### The time setting to use
+
+  qtl_sample_qc_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  qtl_sample_qc_threads: 1 ### Number of threads to use
+  qtl_sample_qc_time: 0 ### The time setting to use
+
+run_qtl:
+  eqtl_chunks_memory: 4 ### Amount of gigs that will be used for memory and disk space per thread
+  eqtl_chunks_threads: 1 ### Number of threads to use
+  eqtl_chunks_time: 0 ### The time setting to use
+
+  run_qtl_mapping_memory: 8 ### Amount of gigs that will be used for memory and disk space per thread
+  run_qtl_mapping_threads: 1 ### Number of threads to use
+  run_qtl_mapping_time: 0 ### The time setting to use
+
+  minimal_postprocess_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  minimal_postprocess_threads: 1 ### Number of threads to use
+  minimal_postprocess_time: 0 ### The time setting to use
+
+  top_feature_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  top_feature_threads: 1 ### Number of threads to use
+  top_feature_time: 0 ### The time setting to use
+
+  compress_qtl_memory: 8 ### Amount of gigs that will be used for memory and disk space per thread
+  compress_qtl_threads: 1 ### Number of threads to use
+  compress_qtl_time: 0 ### The time setting to use
+
+calculate_ld:
+  bgen_metadata_files_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  bgen_metadata_files_threads: 1 ### Number of threads to use
+  bgen_metadata_files_time: 0 ### The time setting to use
+
+  create_bdose_file_by_chr_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  create_bdose_file_by_chr_threads: 1 ### Number of threads to use
+  create_bdose_file_by_chr_time: 0 ### The time setting to use
+
+  ld_chunks_memory: 4 ### Amount of gigs that will be used for memory and disk space per thread
+  ld_chunks_threads: 1 ### Number of threads to use
+  ld_chunks_time: 0 ### The time setting to use
+
+  ld_per_window_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  ld_per_window_threads: 1 ### Number of threads to use
+  ld_per_window_time: 0 ### The time setting to use
+
+  compress_ld_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  compress_ld_threads: 1 ### Number of threads to use
+  compress_ld_time: 0 ### The time setting to use
+
+############################################################################################################################################
+##### The following arguments in this section should not need to be changed/edited unless the default options do not work your dataset #####
+############################################################################################################################################
+inputs_extra:
+  relative_wg1_imputed_genotype_vcf: "vcf_merged_by_ancestries/{ancestry}_imputed_hg38.vcf.gz" ### Relative path to 'wg1_genotype_folder', VCF file with the imputed genotypes
+  relative_wg1_psam: "update_sex_ancestry/update_sex.psam" ### Relative path to 'wg1_genotype_folder', psam file with donor information including both the user provided information and updates during the WG1 pipeline. (https://wg1-pipeline-qc.readthedocs.io/en/latest/Imputation/Imputation_Required_Input.html#plink2-reference-snp-genotype-pfiles)
+  relative_wg1_het_filtered: "het_filter/{ancestry}_het_filtered.vcf.gz" ### Relative path to 'wg1_genotype_folder', the HET filtered input file for the kinship calculations
+  relative_wg1_kinship: "kinship/{ancestry}_subset_pruned.kinship" ### Relative path to 'wg1_genotype_folder', the kinship file
+  relative_wg1_metadata: "CombinedResults/Final_Assignments_demultiplexing_doublets.tsv.gz"  ### Relative path to 'wg1_demultiplex_folder', the assingment - droplettype metadata file from WG1
+  relative_wg2_metadata: "map/azimuth_all.metadata.tsv.gz" ### Relative path to 'wg2_folder', the cell annotations metadata from WG2
+
+refs_extra:
+  ribosomal_genes: "Ribosomal_genes.txt" ### Relative to 'ref_dir', file containing ribosomal genes
+  mitochondrial_genes: "Mitochondrial_genes.txt" ### Relative to 'ref_dir', file containing mitochondrial genes
+  wg2_pairing: "azimuth_l1_l2.csv" ### Relative to 'ref_dir', file with an option cell annotation mapping file
+  qc_mad: "qc_mad_final.tab" ### Relative to 'ref_dir', file with the MAD thresholds to use for QC
+
+settings_extra:
+  plink_memory_buffer: 1 ### Amount of gigs to reduce for the Java memory for buffer
+  java_memory_buffer: 2 ### Amount of gigs to add to the Java memory for buffer
+
+prepare_input_extra:
+  process_output_r_maf: 0.01 ### Filter the input variants on Minor Allele Frequency (MAF) >=X
+  process_output_r_r2: 0.6 ### Filter the input variants on MACH R2 >=X
+  process_output_r_call: 0.99 ### Filter the input variants on CALL >=X
+
+  kinship_maf: 0.05 ### filters out all variants for the kinship calculations with allele frequency below the provided threshold
+  kinship_hwe: 1e-6 ### filters out all variants for the kinship calculations which have Hardy-Weinberg equilibrium exact test p-value below the provided threshold
+  kinship_indep_window_size: 250 ### a window size in variant count or kilobase (if the 'kb' modifier is present) units
+  kinship_indep_step_size: 50 ### a variant count to shift the window at the end of each step
+  kinship_pairwise_r2_threshold: 0.2 ### pairwise r2 threshold
+
+  feature_annotation_feature_name: "GeneName" ### The feature name in the GTF input file
+  feature_annotation_biotype_flag: "gene_type" ### important: default is 'gene_biotype' for sc-eQTLgen!
+  feature_annotation_autosomes_only: True ### Only include autosomes in the feature annotation
+
+quality_control_extra:
+  barcode_qc_level: "dataset" ### Split the metadata for the QC filter on this level, select 'dataset' for no split.
+
+  prepare_eqtl_input_aggregate_fun: "mean" ### How to aggregate the cells into pseudobulk; no other options implemented
+  prepare_eqtl_input_min_n_cells: 5 ### Minimum number of cells per sample
+  prepare_eqtl_input_min_n_samples: 15 ### Minimum number of samples per gene
+  prepare_eqtl_input_n_pcs: 10 ### Number of PCs to correct for in the eQTL analysis
+
+  qtl_sample_qc_donor_cell_threshold: null ### Max MAD threshold to filter the per sample cell fraction on
+  qtl_sample_qc_counts_threshold: 5. ### Max MAD threshold to filter the gene count PCA on
+  qtl_sample_qc_kinship_threshold: 5. ### Max MAD threshold to filter the kinship PCA on
+
+run_qtl_extra:
+  eqtl_chunks_n_genes: 50 ### Estimated number of genes per eQTL chunk
+  window_size: 1000000 ### gene + cis window from one side
+  maf: 0.01 ### Minor Allele Frequency cutoff
+  hwe: 0.0001 ### Hardy-Weinberg Equilibrium cutoff
+  call_rate: 0.95 ### Call-rate cutoff
+  block_size: 1500 ### SNPs block size
+  n_permutations: 100 ### Number of permutation
+  relatedness_score: 0.8 ### Relatedness cutoff in the kinship file
+  minimum_test_samples: 10 ### Minimum number of test samples
+
+calculate_ld_extra:
+  ld_chunks_window_size: 5000000 ### LD chunks window size
+  ld_chunks_gene_window: 1000000 ### LD chunks gene window
