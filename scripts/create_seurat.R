@@ -62,6 +62,7 @@ rm(counts_file)
 
 print("Constructing metadata table")
 meta.data <- read_delim(barcodes_file, delim = "\t", col_names = c("Barcode"))
+print(paste0("  Loaded metadata with shape (", dim(meta.data)[1], ", ", dim(meta.data)[2], ")"))
 if (!identical(colnames(counts), meta.data$Barcode)) {
   print("Error, barcodes do not match count matrix.")
   quit()
@@ -71,11 +72,14 @@ if (!identical(colnames(counts), meta.data$Barcode)) {
 meta.data$Pool <- opt$pool
 meta.data$Barcode <- gsub("-1", "", meta.data$Barcode)
 meta.data$Barcode <- paste0(meta.data$Barcode, "_", opt$pool)
+meta.data$Order <- 1:dim(meta.data)[1] # This enables merging file that are not the same order.
 colnames(counts) <- meta.data$Barcode
 
 # Function that merges two meta.data files and checks if the number of rows are still identical.
 merge_metadata <- function(meta.data, filepath, delim="\t", col_names=TRUE, remap_colnames=NULL, copy_colnames=NULL, by=NULL, type="left") {
   meta.data2 <- read_delim(filepath, delim = delim, col_names = col_names, col_types = cols(.default = "c")) # make sure to read as character to prevent typing issues in pools with just numbers
+  print(paste0("  Loaded ", basename(filepath), " with shape (", dim(meta.data2)[1], ", ", dim(meta.data2)[2], ")"))
+
   colnames(meta.data2) <- gsub(x = colnames(meta.data2), pattern = "\\#", replacement = "")
   if (!is.null(remap_colnames)) {
     meta.data2 <- rename(meta.data2, remap_colnames)
@@ -93,11 +97,12 @@ merge_metadata <- function(meta.data, filepath, delim="\t", col_names=TRUE, rema
 
 
   meta.data <- join(x = meta.data, y = meta.data2, by = by, type = type, match = "first")
+  meta.data <- meta.data[order(meta.data$Order), ] # This enables merging file that are not the same order.
   if (!identical(colnames(counts), meta.data$Barcode)) {
     print("Error, metadata files do not match.")
     quit()
   }
-  print(paste0("  Added ", basename(filepath), " with shape (", dim(meta.data2)[1], ", ", dim(meta.data2)[2], ")"))
+  print("  Added metadata file")
 
   rm(meta.data2)
   return(meta.data)
