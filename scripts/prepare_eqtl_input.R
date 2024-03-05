@@ -53,23 +53,41 @@ seurat <- readRDS(file = opt$seurat)
 
 wg1_psam <- read_delim(opt$wg1_psam, delim = "\t")
 cell_annotation <- read_delim(opt$cell_annotation, delim = "\t")
-covariate_cols <- c("Pool", colnames(wg1_psam), colnames(cell_annotation))
+covariate_cols <- c("Donor_Pool",
+                    gsub(x = colnames(wg1_psam), pattern = "\\#", replacement = ""),
+                    colnames(cell_annotation)[!colnames(cell_annotation) %in% c("Barcode")])
 rm(wg1_psam, cell_annotation)
 
 print("Writing smf file")
-smf <- seurat@meta.data[, c("IID", "SID")]
+smf <- seurat@meta.data[, c("IID", "Donor_Pool")]
 smf <- smf[!duplicated(smf), ]
 rownames(smf) <- NULL
 write_delim(smf, paste0(opt$out_dir, opt$out_file, ".smf.txt"), delim = "\t", col_names = FALSE)
-
-IDs <- smf$SID
-unique_ID_list <- unique(IDs)
 rm(smf)
 
-print('Aggregating count matrix using lapply + textTinyR::sparse_Means() ...')
+# Create the Pseudobulk matrix.
 normCountMatrix <- GetAssayData(object = seurat, assay = "data", slot = "data")
 ##normCountMatrix <- as(normCountMatrix, "dgCMatrix")
 
+IDs <- seurat@meta.data$Donor_Pool
+unique_ID_list <- unique(IDs)
+
+nindividuals <- length(unique_ID_list)
+ncells <- ncol(normCountMatrix)
+ngenes <- nrow(normCountMatrix)
+
+# Info
+print(paste0('Calculating pseudo-bulk for expression matrix using: ', opt$aggregate_fun))
+print(paste0('   ### n_individuals: ', nindividuals))
+print(paste0('   ### n_cells: ', ncells))
+print(paste0('   ### n_genes: ', ngenes))
+cat('\n')
+
+if (ncells <= 1) {
+  stop('Cell type has 1 or 0 cells, skip')
+}
+
+print('Aggregating count matrix using lapply + textTinyR::sparse_Means() ...')
 system.time(aggregate_normCountMatrix <- as.data.frame(pblapply(unique_ID_list, FUN = function(x) { sparse_Means(normCountMatrix[, IDs == x, drop = FALSE], rowMeans = TRUE) })))
 cellCount <- pblapply(unique_ID_list, FUN = function(x) { ncol(normCountMatrix[, IDs == x, drop = FALSE]) })
 colnames(aggregate_normCountMatrix) <- names(cellCount) <- unique_ID_list
@@ -83,19 +101,21 @@ write.table(aggregate_normCountMatrix, paste0(opt$out_dir, opt$out_file, ".Exp.t
 
 ##Write covariates global covariates.
 print("Writing covariates")
-meta.d <- unique(seurat@meta.data[, which(colnames(seurat@meta.data) %in% covariate_cols)])
+meta.d <- seurat@meta.data[, which(colnames(seurat@meta.data) %in% covariate_cols)]
 rownames(meta.d) <- NULL
-meta.d <- cbind(meta.d, cellCount[match(meta.d$IID, names(cellCount))]) ##Add cell numbers.
+meta.d <- meta.d[!duplicated(meta.d), ]
+meta.d <- cbind(meta.d, cellCount[match(meta.d$Donor_Pool, names(cellCount))]) ##Add cell numbers.
 colnames(meta.d)[ncol(meta.d)] <- "CellCount" ##Fix nameing.
 write.table(meta.d, paste0(opt$out_dir, opt$out_file, ".covariates.txt"), quote = F, sep = "\t", row.names = F)
+rm(meta.d)
 
 ##Write QTL input.
 print("Writing QTL input")
 
-##For QTL first filter, take only obersvations from 5 cells, and rows that are varying.
+##For QTL first filter, take only obersvations from min_n_cells cells, and rows that are varying.
 aggregate_normCountMatrix <- aggregate_normCountMatrix[, which(colnames(aggregate_normCountMatrix) %in% names(which(cellCount >= opt$min_n_cells)))]
 
-##Only write-out files when there are more then 15 observations.
+##Only write-out files when there are more then min_n_sample observations.
 if (is.null(dim(aggregate_normCountMatrix)) || ncol(aggregate_normCountMatrix) <= opt$min_n_sample) {
   stop("  No samples with minimum number of cells")
 }

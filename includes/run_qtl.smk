@@ -112,6 +112,10 @@ rule run_qtl_mapping:
             --minimum_test_samples {params.minimum_test_samples} \
             --gaussianize_method gaussnorm \
             --cis
+        
+        singularity exec --bind {params.bind} {params.sif} touch {output.h5}
+        singularity exec --bind {params.bind} {params.sif} touch {output.snp_metadata}
+        singularity exec --bind {params.bind} {params.sif} touch {output.feature_metadata}
         """
 
 

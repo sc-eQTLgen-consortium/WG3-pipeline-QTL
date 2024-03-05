@@ -67,7 +67,14 @@ filter_seurat_object <- function(row){
   # Add the QC tag.
   seurat <- AddMetaData(seurat, metadata)
 
-  mask1 <- seurat@meta.data["DropletType"] == "singlet"
+  print(paste0("    Barcodes: N = ", length(colnames(seurat))))
+
+  if (sum(seurat@meta.data["DropletType"] != "singlet")) {
+    print("    Error, not all 'DropletType' are equal to 'Singlet'. These barcodes should have been removed in 'create_seurat.R''")
+    quit()
+  }
+
+  mask1 <- seurat@meta.data["DropletType"] == "singlet" # Should already have been filtered on.
   mask2 <- seurat@meta.data["tag"] == "NotOutlier"
   mask3 <- seurat@meta.data[opt$cell_level] == opt$cell_type
   mask4 <- opt$ancestry == "ALL" | seurat@meta.data["Provided_Ancestry"] == opt$ancestry
@@ -76,7 +83,7 @@ filter_seurat_object <- function(row){
 
   mask6 <- TRUE
   if (!is.null(exclude)) {
-    mask6 <- !(paste0(seurat@meta.data$IID, "_", seurat@meta.data$SID) %in% exclude)
+    mask6 <- !(paste0(seurat@meta.data$IID, "_", seurat@meta.data$Donor_Pool) %in% exclude)
   }
 
   mask <- mask1 & mask2 & mask3 & mask4 & mask5 & mask6
@@ -101,15 +108,18 @@ seurat_objects[sapply(seurat_objects, is.null)] <- NULL
 nindividuals <- length(seurat_objects)
 seurat <- merge(seurat_objects[[1]], y = seurat_objects[2:length(seurat_objects)])
 
-countMatrixFull <- GetAssayData(seurat, slot <- "counts")
+countMatrixFull <- GetAssayData(seurat, slot = "counts")
 countMatrix <- countMatrixFull[which(rowSums(countMatrixFull) != 0), ]
+
+##Clean
+rm(countMatrixFull)
+gc();
+
 ncells <- ncol(countMatrix)
 ngenes <- nrow(countMatrix)
 
-normCountMatrix <- countMatrix ##To store in the new object in.
-
 # Info
-print(paste0('Calculating pseudo-bulk from expression matrix'))
+print(paste0('PFlogPF normalising expression matrix'))
 print(paste0('   ### n_individuals: ', nindividuals))
 print(paste0('   ### n_cells: ', ncells))
 print(paste0('   ### n_genes: ', ngenes))
@@ -118,6 +128,8 @@ cat('\n')
 if (ncells <= 1) {
   stop('Cell type has 1 or 0 cells, skip')
 }
+
+normCountMatrix <- countMatrix ##To store in the new object in.
 
 # PF, scale to match meanRowSums
 sampleSumInfo <- colSums(normCountMatrix)

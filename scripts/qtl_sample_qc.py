@@ -216,7 +216,7 @@ def darken_cmap(cmap, scale_factor):
 
 print("Loading SMF file")
 smf = pd.read_csv(args.smf, sep="\t", header=None, index_col=None, low_memory=False)
-smf.columns = ["IID", "SID"]
+smf.columns = ["IID", "Donor_Pool"]
 
 ################################################################################
 
@@ -236,11 +236,11 @@ metadata = metadata.loc[(metadata["DropletType"] == "singlet") &
                         (metadata["cell_treatment"] == "UT"), :]
 
 # Counts per assignment-pool.
-count_per_ind = metadata.loc[:, ["SID", "Barcode"]].groupby("SID").count()
+count_per_ind = metadata.loc[:, ["Donor_Pool", "Barcode"]].groupby("Donor_Pool").count()
 count_per_ind.columns = ["Total"]
 
 # Cell type counts per assignment-pool.
-ct_count_per_ind = metadata.loc[metadata[args.cell_level] == args.cell_type, ["SID", "Barcode"]].groupby(["SID"]).count()
+ct_count_per_ind = metadata.loc[metadata[args.cell_level] == args.cell_type, ["Donor_Pool", "Barcode"]].groupby(["Donor_Pool"]).count()
 ct_count_per_ind.columns = ["CellCount"]
 
 # Combine.
@@ -271,7 +271,7 @@ include_count_per_ind_df = filter_on_mad(df=count_per_ind_df, x="Fraction", thre
 include_count_per_ind_df = include_count_per_ind_df.loc[:, ["include"]].copy()
 include_count_per_ind_df.columns = ["cells"]
 
-smf = smf.merge(include_count_per_ind_df, left_on="SID", right_index=True, how="left")
+smf = smf.merge(include_count_per_ind_df, left_on="Donor_Pool", right_index=True, how="left")
 
 ################################################################################
 
@@ -313,7 +313,7 @@ include_principal_components = filter_on_mad(df=principal_components, x="PC1", y
 include_principal_components = include_principal_components.loc[:, ["include"]].copy()
 include_principal_components.columns = ["counts"]
 
-smf = smf.merge(include_principal_components, left_on="SID", right_index=True, how="left")
+smf = smf.merge(include_principal_components, left_on="Donor_Pool", right_index=True, how="left")
 
 ################################################################################
 
@@ -370,7 +370,7 @@ smf = smf.merge(include_subset_kinship_pca, left_on="IID", right_index=True, how
 
 ################################################################################
 
-filter_columns = [col for col in smf.columns if col not in ["IID", "SID"]]
+filter_columns = [col for col in smf.columns if col not in ["IID", "Donor_Pool"]]
 smf["all"] = smf[filter_columns].sum(axis=1) == len(filter_columns)
 n_preqc = smf.shape[0]
 n_postqc = smf["all"].sum()
@@ -387,7 +387,7 @@ smf.to_csv(os.path.join(args.out, args.cell_type, 'manual_selection', '{}_{}_sam
 print("Filtering samples")
 for column in filter_columns:
     print("    {:,} samples passed {} thresholds".format(np.sum(smf[column]), column))
-smf = smf.loc[~smf["all"], ["IID", "SID"]]
+smf = smf.loc[~smf["all"], ["IID", "Donor_Pool"]]
 print("    {:,} samples failed QC thresholds".format(smf.shape[0]))
 smf.to_csv(os.path.join(args.out, args.cell_type, 'manual_selection', '{}_{}_exclude_smf.txt'.format(args.cell_type, args.qc)), sep="\t", header=False, index=False)
 

@@ -140,10 +140,16 @@ meta.data <- merge_metadata(meta.data = meta.data,
                             filepath = opt$wg1_psam,
                             by = c("IID"))
 
+# Set the Donor_Pool column.
+meta.data$Donor_Pool <- paste0(meta.data$Assignment, ";;", meta.data$sequencing_run, "_", meta.data$sequencing_lane)
+
 # Create the Seurat object.
 print("Creating Seurat object")
 rownames(meta.data) <- meta.data$Barcode
 seurat <- CreateSeuratObject(counts, min.cells = 0, min.features = 0, meta.data = meta.data)
+
+##### subset for just singlets #####
+seurat <- subset(seurat, DropletType == "singlet")
 
 # Add the complexity meta data column.
 print("  Adding complexity")
