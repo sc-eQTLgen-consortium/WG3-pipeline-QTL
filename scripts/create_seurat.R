@@ -62,7 +62,8 @@ rm(counts_file)
 
 print("Constructing metadata table")
 meta.data <- read_delim(barcodes_file, delim = "\t", col_names = c("Barcode"))
-print(paste0("  Loaded metadata with shape (", dim(meta.data)[1], ", ", dim(meta.data)[2], ")"))
+print(paste0("  Loaded metadata with shape (", nrow(meta.data), ", ", ncol(meta.data), ")"))
+nbarcodes = nrow(meta.data)
 if (!identical(colnames(counts), meta.data$Barcode)) {
   print("Error, barcodes do not match count matrix.")
   quit()
@@ -95,7 +96,6 @@ merge_metadata <- function(meta.data, filepath, delim="\t", col_names=TRUE, rema
     by <- colnames(meta.data2)[by]
   }
 
-
   meta.data <- join(x = meta.data, y = meta.data2, by = by, type = type, match = "first")
   meta.data <- meta.data[order(meta.data$Order), ] # This enables merging file that are not the same order.
   if (!identical(colnames(counts), meta.data$Barcode)) {
@@ -120,7 +120,6 @@ meta.data <- merge_metadata(meta.data = meta.data,
                             by = c("Pool", "Barcode"),
                             copy_colnames = list("IID" = "Assignment"),
                             type = "inner")
-meta.data$SID <- paste0(meta.data$Assignment, "_", opt$pool)
 
 # Add the WG2 metadata. This file may miss some Barcodes.
 meta.data <- merge_metadata(meta.data = meta.data,
@@ -140,16 +139,24 @@ meta.data <- merge_metadata(meta.data = meta.data,
                             filepath = opt$wg1_psam,
                             by = c("IID"))
 
-# Set the Donor_Pool column.
-meta.data$Donor_Pool <- paste0(meta.data$Assignment, ";;", meta.data$sequencing_run, "_", meta.data$sequencing_lane)
+meta.data$Assignment_Run_Lane <- paste0(meta.data$Assignment, ";;", meta.data$sequencing_run, "_", meta.data$sequencing_lane)
+
+print(paste0("  Combined full metadata with shape (", nrow(meta.data), ", ", ncol(meta.data), ")"))
+if (nrow(meta.data) != nbarcodes) {
+    print("Error, metadata has a different number of barcodes before and after merging.")
+}
+
+print("Saving full metadata")
+write_delim(meta.data, gzfile(paste0(opt$out_dir, opt$pool, ".full.metadata.tsv.gz")), "\t")
 
 # Create the Seurat object.
 print("Creating Seurat object")
 rownames(meta.data) <- meta.data$Barcode
-seurat <- CreateSeuratObject(counts, min.cells = 0, min.features = 0, meta.data = meta.data)
-
-##### subset for just singlets #####
-seurat <- subset(seurat, DropletType == "singlet")
+min.cells <- 1
+min.features <- 1
+seurat <- CreateSeuratObject(counts, min.cells = min.cells, min.features = min.features, meta.data = meta.data)
+nbarcodes.post.cells.features.filter = nrow(seurat@meta.data)
+print(paste0("  CreateSeuratObject with min.cells = ", min.cells, " and min.features = ", min.features ," removed ", nbarcodes - nbarcodes.post.cells.features.filter, " cells."))
 
 # Add the complexity meta data column.
 print("  Adding complexity")
@@ -186,7 +193,45 @@ if ((sum(which(RB_genes$GeneID %in% rownames(seurat))) > sum(which(RB_genes$ENSG
     message("Either you do not have ribosomal genes in your dataset or they are not labeled with ENSG IDs or Gene IDs")
 }
 
+print("  Adding MALAT1")
+if ("MALAT1" %in% rownames(seurat)) {
+    seurat[["MALAT1"]] <- FetchData(object=seurat, vars = "MALAT1", layer = "counts")
+} else {
+    seurat[["MALAT1"]] <- 0
+}
+
+print("Saving QC metrics metadata")
+write_delim(seurat@meta.data[, c("Barcode", "nCount_RNA", "nFeature_RNA", "complexity", "percent.mt", "percent.rb", "MALAT1")], gzfile(paste0(opt$out_dir, opt$pool, ".qc_metrics.tsv.gz")), "\t")
+
+print("  Filtering for just singlets")
+nbarcodes.post.singlet.filter <- 0
+counts <- tryCatch({
+    seurat <- subset(seurat, DropletType == "singlet")
+    nbarcodes.post.singlet.filter <- nrow(seurat@meta.data)
+},error = function(e){
+    print(e)
+})
+print(paste0("  subset on DropletType 'singlet' removed ", nbarcodes.post.cells.features.filter - nbarcodes.post.singlet.filter, " cells."))
+
+# Create a data frame over the filter stats.
+filter.stats <- data.frame(c("Barcodes", paste0("cells >", min.cells, " - features >", min.features), "DropletType - Singlet"), c(nbarcodes, nbarcodes.post.cells.features.filter, nbarcodes.post.singlet.filter))
+colnames(filter.stats) <- c("filter", opt$pool)
+
+print("Saving filter stats")
+write_delim(filter.stats, paste0(opt$out_dir, opt$pool, ".filter.stats.tsv"), "\t")
+
+if (nbarcodes.post.singlet.filter == 0) {
+    print("  Final Seurat object:")
+    print("NA")
+    quit()
+}
+
+print("  Final Seurat object:")
+print(str(seurat))
+
 # Save the seurat object and meta data
 print("Saving output")
 write_delim(seurat@meta.data, gzfile(paste0(opt$out_dir, opt$pool, ".metadata.tsv.gz")), "\t")
 saveRDS(seurat, paste0(opt$out_dir, opt$pool, ".rds"))
+
+print("Done")

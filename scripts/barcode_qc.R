@@ -1,5 +1,6 @@
 #!/usr/bin/env Rscript
 # Author: M.J. Bonder (Adapted from 'QC_statistics_final.R' by M. Vochteloo)
+# TODO: something weird is going on in this script where subsetting of data frames requires '..' before the variable
 
 # options parser
 .libPaths("/usr/local/lib/R/site-library")
@@ -38,7 +39,7 @@ print(paste0('Loading functions from: ', opt$functions_fn))
 source(opt$functions_fn)
 
 # Read QC-bound-MAD file
-print(paste0('Reading QC metrics and MAD combinations file in: ',opt$qc_mad))
+print(paste0('Reading QC metrics and MAD combinations file in: ', opt$qc_mad))
 qc_mad.fn <- paste0(opt$qc_mad)
 qc.mad_df <- read.table(qc_mad.fn, header = T)
 qc.mad.temp_list <- split(qc.mad_df, qc.mad_df$QC_metric)
@@ -64,14 +65,15 @@ info <- lapply(names(qc.mad_list), function(qc){
 pools <- read_delim(opt$poolsheet, delim = "\t")
 
 # Merge the metadata files.
+message("Loading metadata")
 load_metadata <- function(row){
-  message("Reading ", row[["Pool"]])
   metadata <- read_delim(paste0(opt$input_dir, row[["Pool"]], ".metadata.tsv.gz"), delim="\t")
   return(metadata)
 }
 metadata <- apply(pools, 1, load_metadata)
 metadata <- as.data.frame(do.call(rbind,metadata))
 metadata$index <- rownames(metadata)
+original_metadata_columns <- colnames(metadata)
 
 # Calculate MADs and assigning Outlier/NotOutlier tags per cell barcode
 print('Calculating MADs and assigning Outlier/NotOutlier tags per cell barcode...')
@@ -84,8 +86,48 @@ metadata$index <- NULL
 # Save the full meta data
 write_delim(metadata, gzfile(paste0(opt$out_dir, "metadata.tsv.gz")), "\t")
 
+# Print summary statistics
+print("QC metrics stats:")
+for (column in c("nCount_RNA", "percent.mt", "percent.rb")) {
+    print(column)
+  qc_metric_data <- as.numeric(unlist(as.vector(metadata[,..column])))
+  n <- length(qc_metric_data)
+  print(paste0("  ", column, ": ",
+               "N = ", n,
+               " Min = ", round(min(qc_metric_data), 2),
+               " Max = ", round(max(qc_metric_data), 2),
+               " Median = ", round(median(qc_metric_data), 2)
+  ))
+  if (paste0(column, ".tag") %in% colnames(metadata)) {
+    n_outlier <- length(which(metadata[,paste0(column, ".tag"), with=FALSE] == "Outlier"))
+    print(paste0("  ", column, ".tag: ",
+                 "Outlier = ", n_outlier, " [", round((100 / n) * n_outlier, 2), "%]"
+  ))
+  }
+  cat('\n')
+}
+cat('\n')
+
+print("Filtering stats:")
+n <- length(metadata$tag)
+n_not_outlier <- length(which(metadata$tag == "NotOutlier"))
+n_outlier <- length(which(metadata$tag == "Outlier"))
+n_other <- nrow(metadata) - n_not_outlier - n_outlier
+print(paste0("  N tag NotOutlier = ", n_not_outlier, " [", round((100 / n) * n_not_outlier, 2), "%]"))
+print(paste0("  N tag Outlier = ", n_outlier, " [", round((100 / n) * n_outlier, 2), "%]"))
+print(paste0("  N tag Other = ", n_other, " [", round((100 / n) * n_other, 2), "%]"))
+
+if (n_not_outlier == 0) {
+  print("Error, no barcodes passed QC.")
+  quit()
+}
+cat('\n')
+
 # Only keep those columns we just created new.
-metadata <- metadata[, c("Pool", "Barcode", "nCount_RNA.tag", "nCount_RNA.mad", "percent.mt.tag", "percent.mt.mad", "mad_comb", "tag")]
+coi <- c("Pool", "Barcode", setdiff(colnames(metadata), original_metadata_columns))
+metadata <- metadata[, ..coi]
 
 # Save the reduced meta data
 write_delim(metadata, gzfile(paste0(opt$out_dir, "metadata.tagged.tsv.gz")), "\t")
+
+print("Done")

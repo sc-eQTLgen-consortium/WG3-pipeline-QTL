@@ -9,6 +9,7 @@ About:      This code is designed to generate a z file as described in LDstore2
 
 import argparse
 from bgen_reader import read_bgen
+import gzip
 
 
 """ GLOBAL VARIABLES """
@@ -28,6 +29,15 @@ print("")
 filepath_output_z      = f'{args.out}.z'
 filepath_output_sample = f'{args.out}.sample'
 filepath_output_master = f'{args.out}_master.txt'
+
+""" FILE OPEN FUNCTION """
+
+
+def gzopen(file, mode="r"):
+    if file.endswith(".gz"):
+        return gzip.open(file, mode + 't')
+    else:
+        return open(file, mode)
 
 
 """ FILE LOCATIONS FOR MASTER FILE """
@@ -58,11 +68,11 @@ data_z['allele2'] = [variant['allele_ids'].iloc[i].split(',')[1] for i in range(
 print(f"size of data {len(data_z['rsid'])}")
 print("writing output z file..")
 
-with open(filepath_output_z, 'w') as f:
+with gzopen(filepath_output_z, mode='w') as f:
     f.write(f'rsid chromosome position allele1 allele2 \n')
     for i in range(len(data_z['rsid'])):
         f.write(f'{data_z["rsid"][i]} {data_z["chromosome"][i]} {data_z["position"][i]} {data_z["allele1"][i]} {data_z["allele2"][i]} \n')
-    f.close()
+f.close()
 
 
 
@@ -80,11 +90,11 @@ data_sample['missing'] = [0 for i in range(len(bgen['samples'])+1)]
 
 print("writing output sample file..")
 
-with open(filepath_output_sample, 'w') as f:
+with gzopen(filepath_output_sample, mode='w') as f:
     f.write(f'ID_1 ID_2 missing \n')
     for i in range(len(data_sample['ID_1'])):
         f.write(f"{data_sample['ID_1'][i]} {data_sample['ID_2'][i]} {data_sample['missing'][i]} \n")
-    f.close()
+f.close()
 
 
 """ CODE TO WRITE MASTER FILE """
@@ -102,12 +112,10 @@ data_master['n_samples'] = n_samples
 
 print("writing output master file..")
 
-with open(filepath_output_master, 'w') as f:
+with gzopen(filepath_output_master, mode='w') as f:
     for key in data_master:
         f.write(f'{key};')
     f.write('\n')
     for key in data_master:
         f.write(f"{data_master[key]};")
-    f.close()
-
-
+f.close()

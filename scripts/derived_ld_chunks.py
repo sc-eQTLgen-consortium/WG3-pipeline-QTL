@@ -11,6 +11,7 @@ MODULES TO IMPORT
 
 import argparse
 import pandas as pd
+import gzip
 
 parser = argparse.ArgumentParser(description="")
 parser.add_argument("--feature_file", required=True, type=str, help="")
@@ -23,6 +24,14 @@ print("Options in effect:")
 for arg in vars(args):
     print("  --{} {}".format(arg, getattr(args, arg)))
 print("")
+
+
+def gzopen(file, mode="r"):
+    if file.endswith(".gz"):
+        return gzip.open(file, mode + 't')
+    else:
+        return open(file, mode)
+
 
 print(f"\nRunning LD window script\n")
 print('reading and preparing gene features file..')
@@ -69,7 +78,7 @@ for chr in range(1, 23):
 ##### WRITE WINDOWS TO FILE #####
 print(f"Created {len(lines)} chunks")
 
-with open(f"{args.out}LDChunkingFile.txt", 'w') as f:
+with gzopen(f"{args.out}LDChunkingFile.txt", mode='w') as f:
     for line in lines:
         f.write(line + "\n")
 f.close()

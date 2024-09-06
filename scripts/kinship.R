@@ -22,6 +22,11 @@ for (name in names(opt)) {
 }
 print("")
 
+# check data is provided
+if (any(unlist(lapply(c(opt$king, opt$king_id, opt$out), is.na)))) {
+  stop("required parameters (king, king_id & out) must be provided.")
+}
+
 kin <- read.delim(opt$king,header=F)
 kinIds <- read.delim(opt$king_id)
 

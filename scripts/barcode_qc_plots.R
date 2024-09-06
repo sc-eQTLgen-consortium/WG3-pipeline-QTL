@@ -44,7 +44,7 @@ MAD_df_list <- lapply(names(MAD_df_list), function(x){
     colnames(MAD_df_list[[x]]) <- c("Median","MAD")
     for (QC in rownames(MAD_df_list[[x]])){
         MAD_df_list[[x]][QC, "Median"] <- median(metadata[which(metadata$Pool == x),QC], na.rm = TRUE)
-        MAD_df_list[[x]][QC, "MAD"] <- mad(metadata[which(metadata$Pool == x),QC], center = MAD_df_list[[x]][QC, "Median"],  constant = 1.4826, na.rm = TRUE,low = FALSE, high = FALSE)
+        MAD_df_list[[x]][QC, "MAD"] <- mad(metadata[which(metadata$Pool == x),QC], center = MAD_df_list[[x]][QC, "Median"], constant = 1.4826, na.rm = TRUE, low = FALSE, high = FALSE)
     }
     MAD_df_list[[x]]$Pool <- x
     MAD_df_list[[x]]$QC_Metric <- rownames(MAD_df_list[[x]])
@@ -58,7 +58,7 @@ rownames(MAD_df_All) <- colnames(metadata)[which(colnames(metadata) %in% c("perc
 colnames(MAD_df_All) <- c("Median","MAD")
 for (QC in rownames(MAD_df_All)){
     MAD_df_All[QC, "Median"] <- median(metadata[,QC], na.rm = TRUE)
-    MAD_df_All[QC, "MAD"] <- mad(metadata[,QC], center = MAD_df_All[QC, "Median"],  constant = 1.4826, na.rm = TRUE,low = FALSE, high = FALSE)
+    MAD_df_All[QC, "MAD"] <- mad(metadata[,QC], center = MAD_df_All[QC, "Median"], constant = 1.4826, na.rm = TRUE, low = FALSE, high = FALSE)
 }
 MAD_df_All$QC_Metric <- rownames(MAD_df_All)
 

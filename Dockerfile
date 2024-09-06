@@ -25,7 +25,8 @@ MAINTAINER Marc Jan Bonder <m.j.bonder@umcg.nl>, Martijn Vochteloo <m.vochteloo@
 ADD . /tmp/repo
 WORKDIR /tmp/repo
 
-ENV PATH=/opt:/usr/games:/opt/conda/envs/py311/bin:/opt/conda/bin:/opt/GenotypeHarmonizer-1.4.27:/opt/ldstore_v2.0_x86_64:/opt/plink2:$PATH
+ENV PATH=/opt:/usr/games:/opt/conda/envs/py311/bin:/opt/conda/bin:/opt/ldstore_v2.0_x86_64:/opt/plink2:$PATH
+ENV BCFTOOLS_PLUGINS=/opt/bcftools-1.18/plugins
 ENV SHELL=/bin/bash
 ENV LC_ALL=C
 ENV LANG=C.UTF-8
@@ -95,12 +96,19 @@ RUN eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)" \
     && /opt/conda/envs/py311/bin/pip install numpy==1.26.0 \
     # python_dateutil-2.8.2 pytz-2023.3.post1 six-1.16.0 tzdata-2023.3
     && /opt/conda/envs/py311/bin/pip install pandas==2.1.1 \
+    # contourpy-1.2.1 cycler-0.12.1 fonttools-4.51.0 kiwisolver-1.4.5
+    # packaging-24.0 pillow-10.3.0 pyparsing-3.1.2
+    && /opt/conda/envs/py311/bin/pip install matplotlib==3.8.0 \
     # h5py-3.10.0-cp311-cp311
     && /opt/conda/envs/py311/bin/pip install h5py==3.10.0 \
     # gdown-4.6.0 filelock-3.13.1 requests-2.31.0 tqdm-4.66.1 beautifulsoup4-4.12.3
     # soupsieve-2.5 charset_normalizer-3.3.2 idna-3.6 urllib3-2.2.0 certifi-2024.2.2
     # PySocks-1.7.1
-    && /opt/conda/envs/py311/bin/pip install gdown==4.6.0 # v4.7.1 gives AttributeError: 'NoneType' object has no attribute 'groups'
+    && /opt/conda/envs/py311/bin/pip install gdown==4.6.0 \
+    # patsy-0.5.6 scipy-1.13.1
+    && /opt/conda/envs/py311/bin/pip install statsmodels==0.14.2 \
+    # joblib-1.4.0 scipy-1.10.1 threadpoolctl-3.4.0
+    && /opt/conda/envs/py311/bin/pip install scikit-learn==1.3.2
 
 # Creating a conda environment for limix and ld tools
 RUN eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)" \
@@ -242,7 +250,9 @@ RUN R --slave -e 'install.packages("remotes")' \
     && R --slave -e 'remotes::install_version("R.utils", version = "2.12.2", upgrade=FALSE)' \
     # None
     && R --slave -e 'remotes::install_version("data.table", version = "1.14.8", upgrade=FALSE)' \
-    # Matrix_1.6-5 rematch2_2.1.2 diffobj_0.3.5 rprojroot_2.0.4
+    # Required for matrixStats, for some reason it otherwise gave 'Warning: dependency 'Matrix' is not available'
+    && R --slave -e 'remotes::install_version("Matrix", version = "1.6.5", upgrade=FALSE)' \
+    # rematch2_2.1.2 diffobj_0.3.5 rprojroot_2.0.4
     # pkgbuild_1.4.3 fs_1.6.3 crayon_1.5.2 cpp11_0.4.7 pkgconfig_2.0.3
     # withr_3.0.0 waldo_0.5.2 ps_1.7.6 processx_3.8.3 praise_1.0.0
     # pkgload_1.3.4 jsonlite_1.8.8 evaluate_0.23 digest_0.6.34 desc_1.4.3
@@ -286,15 +296,15 @@ RUN R --slave -e 'install.packages("remotes")' \
     && R --slave -e 'remotes::install_version("SeuratObject", version = "4.1.4", upgrade=FALSE)' \
     # This needs to be in front of Seurat and needs to be version 1.5.1 to prevent 'ibxml/globals.h: No such file or directory' error with version 2.0.1.1
     && R --slave -e 'remotes::install_version("igraph", version="1.5.1", upgrade=FALSE)' \
-    # sitmo_2.0.2. BH_1.84.0-0. spatstat.utils_3.0-4. tensor_1.5. polyclip_1.10-6. deldir_2.0-2. 
-    # spatstat.geom_3.2-8. spatstat.data_3.0-4. promises_1.2.1. later_1.3.2. dotCall64_1.1-1. 
-    # plyr_1.8.9. bitops_1.0-7. caTools_1.18.2. gtools_3.9.5. lazyeval_0.2.2. commonmark_1.9.1. 
-    # sourcetools_0.1.7-1. xtable_1.8-4. httpuv_1.6.14. png_0.1-8. here_1.0.1. RcppTOML_0.2.2. 
-    # dqrng_0.3.2. RcppProgress_0.4.2. irlba_2.3.5.1. RcppAnnoy_0.0.22. FNN_1.1.4. goftest_1.2-3. 
-    # spatstat.sparse_3.0-3. spatstat.random_3.2-2. spam_2.10-0. RcppArmadillo_0.12.8.0.0. 
-    # reshape2_1.4.4. gplots_3.1.3.1. crosstalk_1.2.1. htmlwidgets_1.6.4. shiny_1.8.0. zoo_1.8-12. 
-    # reticulate_1.35.0. uwot_0.1.16. spatstat.explore_3.2-6. sctransform_0.4.1. scattermore_1.2. 
-    # Rtsne_0.17. ROCR_1.0-11. RANN_2.6.1. plotly_4.10.4. patchwork_1.2.0. miniUI_0.1.1.1. 
+    # sitmo_2.0.2. BH_1.84.0-0. spatstat.utils_3.0-4. tensor_1.5. polyclip_1.10-6. deldir_2.0-2.
+    # spatstat.geom_3.2-8. spatstat.data_3.0-4. promises_1.2.1. later_1.3.2. dotCall64_1.1-1.
+    # plyr_1.8.9. bitops_1.0-7. caTools_1.18.2. gtools_3.9.5. lazyeval_0.2.2. commonmark_1.9.1.
+    # sourcetools_0.1.7-1. xtable_1.8-4. httpuv_1.6.14. png_0.1-8. here_1.0.1. RcppTOML_0.2.2.
+    # dqrng_0.3.2. RcppProgress_0.4.2. irlba_2.3.5.1. RcppAnnoy_0.0.22. FNN_1.1.4. goftest_1.2-3.
+    # spatstat.sparse_3.0-3. spatstat.random_3.2-2. spam_2.10-0. RcppArmadillo_0.12.8.0.0.
+    # reshape2_1.4.4. gplots_3.1.3.1. crosstalk_1.2.1. htmlwidgets_1.6.4. shiny_1.8.0. zoo_1.8-12.
+    # reticulate_1.35.0. uwot_0.1.16. spatstat.explore_3.2-6. sctransform_0.4.1. scattermore_1.2.
+    # Rtsne_0.17. ROCR_1.0-11. RANN_2.6.1. plotly_4.10.4. patchwork_1.2.0. miniUI_0.1.1.1.
     # lmtest_0.9-40. leiden_0.4.3.1. ica_1.0-3. ggridges_0.5.6. fitdistrplus_1.1-11.
     && R --slave -e 'remotes::install_version("Seurat", version = "4.4.0", upgrade=FALSE)' \
     && R --slave -e 'remotes::install_version("scCustomize", version = "1.1.3", upgrade=FALSE)' \
@@ -351,6 +361,17 @@ RUN apt-get install -y --no-install-recommends openjdk-17-jdk
 ############## OTHER #############
 ##################################
 
+# Uses 69 MB, mainly in /opt/bcftools-1.18/htslib-1.18/ (32 MB), /opt/bcftools-1.18/bcftools/ (9 MB), /opt/bcftools-1.18/plugins/ (4.2 MB)
+RUN cd /opt \
+    && wget https://github.com/samtools/bcftools/releases/download/1.18/bcftools-1.18.tar.bz2 \
+    && tar xjf bcftools-1.18.tar.bz2 \
+    && rm bcftools-1.18.tar.bz2 \
+    && cd bcftools-1.18 \
+      && ./configure \
+      && make \
+      && make install \
+    && rm -rf /opt/bcftools-1.18/test
+
 # Using a fixed version of GenotypeHarmonizer-1.4.27 from MJB.
 RUN cd /opt \
     && gdown 16bjxeP0cb4BCVBVxjxKxGu_8r8F-Ppd3 \
@@ -368,15 +389,16 @@ RUN cd /opt \
     && wget http://www.christianbenner.com/ldstore_v2.0_x86_64.tgz \
     && tar -xzf ldstore_v2.0_x86_64.tgz \
     && rm ldstore_v2.0_x86_64.tgz \
+    && mv ldstore_v2.0_x86_64/ldstore_v2.0_x86_64 ldstore_v2.0_x86_64/LDstore2 \
     && chown -R root:root ldstore_v2.0_x86_64 \
     && chmod -R o+rx ldstore_v2.0_x86_64
 
 RUN cd /opt \
     && mkdir plink2 \
     && cd plink2 \
-      && wget https://s3.amazonaws.com/plink2-assets/plink2_linux_x86_64_20240205.zip \
-      && unzip -q plink2_linux_x86_64_20240205.zip \
-      && rm plink2_linux_x86_64_20240205.zip
+      && wget https://s3.amazonaws.com/plink2-assets/plink2_linux_x86_64_20240617.zip \
+      && unzip -q plink2_linux_x86_64_20240617.zip \
+      && rm plink2_linux_x86_64_20240617.zip
 
 ####################################
 ################ CLEAN #############

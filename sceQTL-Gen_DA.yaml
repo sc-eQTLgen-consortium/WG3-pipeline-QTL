@@ -4,7 +4,6 @@
 inputs:
   bind_path: /path/to/bind/to/mount ### List of paths to bind to Singularity. You can specify multiple directories by adding a "," between them. Eg. ${DIRECTORY1},${DIRECTORY2}
   singularity_image: /path/to/singularity/image.sif ### The complete path to the singularity image that has all the pipeline softwares
-  limix_singularity_image: /path/to/singularity/image.sif ### The complete path to the singularity image that has all the LIMIX softwares
   repo_dir: /path/to/repo/dir/ ### Path to the github repository directory
   poolsheet_path: /path/to/sample/metadata/file.tsv ### tab separated file that has a header. Each line has a pool name used for the scRNA-seq directories and the number of individuals in each pool
   cell_annotation_file: /groups/umcg-franke-scrna/tmp01/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/Wijst_2018_cell_annotation.tsv ### The cell annotation file
@@ -24,10 +23,15 @@ settings:
   cell_level: "L1" ### The cell annotation on which to aggregate
   cell_types: [B, CD4_T, CD8_T, DC, Mono, NK, Eryth, HSPC, ILC, Platelet, Other_T] ### The cell types to process
   genome_build: "hg19" ### Genome build of the UNIMPUTED raw input VCF!!!!
-  save_all_samples: True ### Safe all expression samples from the poolsheet into a combined seurat object regardless of ancestry.
+  filter_samples: False ### Whether or not to filter the input VCF (files) on the individual_assignments metadata column
+  save_all_samples: False ### Safe all expression samples from the poolsheet into a combined seurat object regardless of (missing) ancestry (i.e. samples without genotype info are kept).
+
   calculate_qtl: True ### Calculate eQTLs.
   output_flat_qtl_results: False ### Summarise the h5 eQTL output files into a flat format.
+  compress_qtl: True ### Compress the eQTL output files.
+
   calculate_ld: True ### Calculate LD matrices.
+  compress_ld: True ### Compress the LD output files.
 
 cluster_time: {0: "05:59:00", 1: "23:59:00", 2: "6-23:59:00"} ### Options for dynamic time usage for cluster submissions of jobs
 
@@ -35,77 +39,96 @@ cluster_time: {0: "05:59:00", 1: "23:59:00", 2: "6-23:59:00"} ### Options for dy
 ##### The following arguments are common parameters that may need to be changed depending on the dataset #####
 ##############################################################################################################
 prepare_input:
+  feature_annotation_memory: 4 ### Amount of gigs that will be used for memory and disk space per thread
+  feature_annotation_threads: 1 ### Number of threads to use
+  feature_annotation_time: 0 ### The time setting to use
+
+  get_genotype_samples_memory: 4 ### Amount of gigs that will be used for memory and disk space per thread
+  get_genotype_samples_threads: 1 ### Number of threads to use
+  get_genotype_samples_time: 0 ### The time setting to use
+
+  filter_vcf_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  filter_vcf_threads: 1 ### Number of threads to use
+  filter_vcf_time: 0 ### The time setting to use
+
   genotype_io_memory: 8 ### Amount of gigs that will be used for memory and disk space per thread
   genotype_io_threads: 1 ### Number of threads to use
   genotype_io_time: 0 ### The time setting to use
 
-  process_output_r_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
-  process_output_r_threads: 1 ### Number of threads to use
-  process_output_r_time: 0 ### The time setting to use
+  filter_variants_memory: 2 ### Amount of gigs that will be used for memory and disk space per thread
+  filter_variants_threads: 1 ### Number of threads to use
+  filter_variants_time: 0 ### The time setting to use
 
   genotype_harmonizer_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
   genotype_harmonizer_threads: 1 ### Number of threads to use
   genotype_harmonizer_time: 0 ### The time setting to use
 
+  bgen_metadata_files_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  bgen_metadata_files_threads: 1 ### Number of threads to use
+  bgen_metadata_files_time: 0 ### The time setting to use
+
   kinship_memory: 4 ### Amount of gigs that will be used for memory and disk space per thread
   kinship_threads: 1 ### Number of threads to use
   kinship_time: 0 ### The time setting to use
 
-  create_seurat_memory: 32 ### Amount of gigs that will be used for memory and disk space per thread
+  kinship_pca_memory: 4 ### Amount of gigs that will be used for memory and disk space per thread
+  kinship_pca_threads: 1 ### Number of threads to use
+  kinship_pca_time: 0 ### The time setting to use
+
+  create_seurat_memory: 8 ### Amount of gigs that will be used for memory and disk space per thread
   create_seurat_threads: 1 ### Number of threads to use
   create_seurat_time: 0 ### The time setting to use
 
-  feature_annotation_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
-  feature_annotation_threads: 1 ### Number of threads to use
-  feature_annotation_time: 0 ### The time setting to use
-
-quality_control:
   barcode_qc_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
   barcode_qc_threads: 1 ### Number of threads to use
   barcode_qc_time: 0 ### The time setting to use
 
-  barcode_qc_plots_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  barcode_qc_plots_memory: 8 ### Amount of gigs that will be used for memory and disk space per thread
   barcode_qc_plots_threads: 1 ### Number of threads to use
   barcode_qc_plots_time: 0 ### The time setting to use
 
-  create_expression_matrices_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  create_expression_matrices_memory: 32 ### Amount of gigs that will be used for memory and disk space per thread
   create_expression_matrices_threads: 1 ### Number of threads to use
   create_expression_matrices_time: 0 ### The time setting to use
-
-  prepare_eqtl_input_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
-  prepare_eqtl_input_threads: 1 ### Number of threads to use
-  prepare_eqtl_input_time: 0 ### The time setting to use
-
-  qtl_sample_qc_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
-  qtl_sample_qc_threads: 1 ### Number of threads to use
-  qtl_sample_qc_time: 0 ### The time setting to use
 
 run_qtl:
   eqtl_chunks_memory: 4 ### Amount of gigs that will be used for memory and disk space per thread
   eqtl_chunks_threads: 1 ### Number of threads to use
   eqtl_chunks_time: 0 ### The time setting to use
 
+  prepare_eqtl_input_memory: 32 ### Amount of gigs that will be used for memory and disk space per thread
+  prepare_eqtl_input_threads: 1 ### Number of threads to use
+  prepare_eqtl_input_time: 0 ### The time setting to use
+
+  qtl_sample_qc_memory: 4 ### Amount of gigs that will be used for memory and disk space per thread
+  qtl_sample_qc_threads: 1 ### Number of threads to use
+  qtl_sample_qc_time: 0 ### The time setting to use
+
+  subset_covariates_file_memory: 4 ### Amount of gigs that will be used for memory and disk space per thread
+  subset_covariates_file_threads: 1 ### Number of threads to use
+  subset_covariates_file_time: 0 ### The time setting to use
+
   run_qtl_mapping_memory: 8 ### Amount of gigs that will be used for memory and disk space per thread
   run_qtl_mapping_threads: 1 ### Number of threads to use
   run_qtl_mapping_time: 0 ### The time setting to use
 
-  minimal_postprocess_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  minimal_postprocess_memory: 8 ### Amount of gigs that will be used for memory and disk space per thread
   minimal_postprocess_threads: 1 ### Number of threads to use
   minimal_postprocess_time: 0 ### The time setting to use
 
-  top_feature_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
-  top_feature_threads: 1 ### Number of threads to use
-  top_feature_time: 0 ### The time setting to use
+  combine_qtl_mapping_runtime_memory: 4 ### Amount of gigs that will be used for memory and disk space per thread
+  combine_qtl_mapping_runtime_threads: 1 ### Number of threads to use
+  combine_qtl_mapping_runtime_time: 0 ### The time setting to use
+
+  multiple_testing_correction_memory: 4 ### Amount of gigs that will be used for memory and disk space per thread
+  multiple_testing_correction_threads: 1 ### Number of threads to use
+  multiple_testing_correction_time: 0 ### The time setting to use
 
   compress_qtl_memory: 8 ### Amount of gigs that will be used for memory and disk space per thread
   compress_qtl_threads: 1 ### Number of threads to use
   compress_qtl_time: 0 ### The time setting to use
 
 calculate_ld:
-  bgen_metadata_files_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
-  bgen_metadata_files_threads: 1 ### Number of threads to use
-  bgen_metadata_files_time: 0 ### The time setting to use
-
   create_bdose_file_by_chr_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
   create_bdose_file_by_chr_threads: 1 ### Number of threads to use
   create_bdose_file_by_chr_time: 0 ### The time setting to use
@@ -118,7 +141,7 @@ calculate_ld:
   ld_per_window_threads: 1 ### Number of threads to use
   ld_per_window_time: 0 ### The time setting to use
 
-  compress_ld_memory: 16 ### Amount of gigs that will be used for memory and disk space per thread
+  compress_ld_memory: 8 ### Amount of gigs that will be used for memory and disk space per thread
   compress_ld_threads: 1 ### Number of threads to use
   compress_ld_time: 0 ### The time setting to use
 
@@ -140,13 +163,16 @@ refs_extra:
   qc_mad: "qc_mad_final.tab" ### Relative to 'ref_dir', file with the MAD thresholds to use for QC
 
 settings_extra:
+  ignore_file_checks: False ### Boolean to ignore missing file errors in the Snakefile.
   plink_memory_buffer: 1 ### Amount of gigs to reduce for the Java memory for buffer
   java_memory_buffer: 2 ### Amount of gigs to add to the Java memory for buffer
+  individual_aggregate: "Assignment" ### The column on which to aggregate individuals
+  sample_aggregate: "Assignment_Run_Lane" ### The column on which to aggregate samples, Assignment_Run_Lane = Assignment;;sequencing_run_sequencing_lane
 
 prepare_input_extra:
-  process_output_r_maf: 0.01 ### Filter the input variants on Minor Allele Frequency (MAF) >=X
-  process_output_r_r2: 0.6 ### Filter the input variants on MACH R2 >=X
-  process_output_r_call: 0.99 ### Filter the input variants on CALL >=X
+  filter_variants_maf: 0.01 ### Filter the input variants on Minor Allele Frequency (MAF) >=X
+  filter_variants_r2: 0.6 ### Filter the input variants on MACH R2 >=X
+  filter_variants_call: 0.99 ### Filter the input variants on CALL >=X
 
   kinship_maf: 0.05 ### filters out all variants for the kinship calculations with allele frequency below the provided threshold
   kinship_hwe: 1e-6 ### filters out all variants for the kinship calculations which have Hardy-Weinberg equilibrium exact test p-value below the provided threshold
@@ -161,16 +187,16 @@ prepare_input_extra:
 quality_control_extra:
   barcode_qc_level: "dataset" ### Split the metadata for the QC filter on this level, select 'dataset' for no split.
 
-  prepare_eqtl_input_aggregate_fun: "mean" ### How to aggregate the cells into pseudobulk; no other options implemented
+  prepare_eqtl_input_aggregate_fun: "mean" ### How to aggregate the cells into pseudobulk
   prepare_eqtl_input_min_n_cells: 5 ### Minimum number of cells per sample
   prepare_eqtl_input_min_n_samples: 15 ### Minimum number of samples per gene
-  prepare_eqtl_input_n_pcs: 10 ### Number of PCs to correct for in the eQTL analysis
 
   qtl_sample_qc_donor_cell_threshold: null ### Max MAD threshold to filter the per sample cell fraction on
   qtl_sample_qc_counts_threshold: 5. ### Max MAD threshold to filter the gene count PCA on
   qtl_sample_qc_kinship_threshold: 5. ### Max MAD threshold to filter the kinship PCA on
 
 run_qtl_extra:
+  n_expression_pcs: 10 ### Number of PCs to correct for in the eQTL analysis, if you select multiple a PC titration curve will be generated
   eqtl_chunks_n_genes: 50 ### Estimated number of genes per eQTL chunk
   window_size: 1000000 ### gene + cis window from one side
   maf: 0.01 ### Minor Allele Frequency cutoff

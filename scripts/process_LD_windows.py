@@ -38,10 +38,10 @@ outfile_means = f'{args.out}{args.outfile}_means.pkl.gz'
 outfile_window = f'{args.out}{args.outfile}.pkl.gz'
 
 match = re.match("chr_([0-9]{1,2}|X|Y|MT)_window_([0-9]+)_([0-9]+)_([0-9]+)", args.outfile)
-chr = match.group(1)
-num = match.group(2)
-start = match.group(3)
-end = match.group(4)
+chr = str(match.group(1))
+num = int(match.group(2))
+start = int(match.group(3))
+end = int(match.group(4))
 
 ### Sorting bdose file
 print("Reading bdose file..")

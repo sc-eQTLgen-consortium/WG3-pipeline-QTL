@@ -62,7 +62,7 @@ downsample_by_metadata <- function(so_md, n_cells, md_var){
 # 4. MAD function (called in qc_mad.func)
 mad.func <- function(number_mad, qc, th, so_md){
   print(paste0('MAD: ', number_mad))
-  mad <- mad(so_md[,qc])
+  mad <- mad(so_md[,qc], constant = 1.4826, na.rm = TRUE, low = FALSE, high = FALSE)
   low <- median(so_md[,qc]) - number_mad*mad
   high <- median(so_md[,qc]) + number_mad*mad
   if(all(c("lower","upper")%in%th)){
