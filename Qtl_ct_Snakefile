@@ -1,0 +1,143 @@
+from pathlib import Path
+import re
+import os
+CHROM = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22']
+
+configfile: "./QTL_ct.yaml"
+
+imageDir = config["image_folder"]
+includeDir = config["top_dir"]
+outputFolder = Path(config["out_folder"])
+scripts_folder = "/tools/WG3-pipeline-QTL/scripts/"
+
+limix_path = "singularity exec --bind "+includeDir+",$TMPDIR "+imageDir+"limixJune24.simg python /groups/umcg-franke-scrna/tmp04/users/umcg-mjbonder/Limix_QTL/"
+gen_path = "singularity exec --bind "+includeDir+",$TMPDIR "+imageDir+"limixJune24.simg"
+wp3_path = "singularity exec --bind "+includeDir+",$TMPDIR "+imageDir+"wp3_extended_v2.sif"
+
+##QTL mapping variables.
+genotypeFile= config["WG3_folder"]+ 'genotype_input/EUR_imputed_hg38_varFiltered_chr{gChr}'  # use {gChr} if genotype is split by chromosome
+kinshipFile= config["WG3_folder"]+'input/sample.kinship'
+sampleMappingFile = config["sample_map_file"]
+cell_type_split_script = config["ct_split_script_path"]
+
+##LD calculation variables
+winFiles = os.listdir(config["WG3_folder"]+'input/WindowsFiles')
+
+topDirInput = config["WG3_folder"]+'input'
+bgen_folder = config["WG3_folder"]+ 'genotype_input'
+
+topDirInput+"/LDMatrices/chr_{chrom}_window_{num}_{start}_{end}.pkl"
+
+def getQTLChunks(wildcards):
+  chunkFile = checkpoints.cell_type_proportions.get().output.chunkFile
+  chunk_chrom, chunk_start, chunk_end=[], [], []
+  with open(chunkFile) as fp:
+    for line in fp:
+      re_match=re.match(r"([A-Za-z0-9]+):(\d+)-(\d+)", line.strip())
+      chunk_chrom.append(re_match[1])
+      chunk_start.append(re_match[2])
+      chunk_end.append(re_match[3])
+  qtlChunks = expand(outputFolder/"{gChr}"/"qtl"/"{chunkChrom}_{start}_{end}.finished", zip, chunkChrom=chunk_chrom, start=chunk_start, end=chunk_end, allow_missing=True)
+  return qtlChunks
+
+def getFiles(wildcards):
+  af = checkpoints.cell_type_proportions.get().output.annoFile
+  pf = checkpoints.cell_type_proportions.get().output.phenoFile
+  cf = checkpoints.cell_type_proportions.get().output.covariateFile
+  return af,pf,cf
+
+rule all:
+    input:
+        #expand(outputFolder/"{gChr}.qtl.tgz", gChr=CHROM),
+        expand(outputFolder/"{gChr}"/"ct-split-done.txt", gChr=CHROM)
+    output:
+        touch(expand(outputFolder/"{gChr}"/"done.txt", gChr=CHROM))
+
+checkpoint cell_type_proportions:
+    resources:
+        memory = lambda wildcards, attempt: attempt * config["cell_type_proportions"]["cell_type_proportions_memory"],
+        time = config["cell_type_proportions"]["cell_type_proportions_time"]
+    input:
+        wg2_input_rds_file = config["wg2_input_rds_file"],
+        psam_file = config["psam_file"],
+        comp_script = config["comp_script"]
+    output:
+        annoFile = outputFolder/"dummy_annotation.txt",
+        phenoFile = outputFolder/"ct_prop_per_donor.txt",
+        chunkFile = outputFolder/"ct_ChunkingFile.txt",
+        covariateFile = outputFolder/"cells_per_donor.txt"
+    shell:
+        """
+        {wp3_path} Rscript {input.comp_script} {input.wg2_input_rds_file} {input.psam_file} {outputFolder}/ 
+        """
+
+rule run_qtl_mapping:
+    resources:
+        memory = lambda wildcards, attempt: attempt * config["run_qtl_mapping"]["run_qtl_mapping_memory"],
+        time = config["run_qtl_mapping"]["run_qtl_mapping_time"]
+    input:
+        ckpntFiles = getFiles,
+        smf = sampleMappingFile,
+        kf = kinshipFile
+        #rf = config["randomeff_files"] if config["randomeff_files"]!='' else []
+    output:
+        touch(outputFolder/"{gChr}"/"qtl/{chunkChrom}_{start}_{end}.finished")
+    params:
+        allFiles = getFiles,
+        cmd = limix_path,
+        gen  = genotypeFile,
+        np = config["numberOfPermutations"],
+        maf = config["minorAlleleFrequency"],
+        hwe = config["hardyWeinbergCutoff"],
+        w = config["windowSize"]
+    shell: """ {params.cmd}run_QTL_analysis_metaAnalysis.py \
+             --bgen {params.gen} \
+             -af {params.allFiles[0]} \
+             -cf {params.allFiles[2]} \
+             -pf {params.allFiles[1]} \
+             -rf {input.kf} \
+             -od {outputFolder}/{wildcards.gChr}/qtl/ \
+             -gr {wildcards.chunkChrom}:{wildcards.start}-{wildcards.end} \
+             -np {params.np} \
+             -maf {params.maf} \
+             -t -gm arcsin_standardize \
+             -w {params.w} \
+             -hwe {params.hwe} \
+             -rs .8 """
+
+rule extract_GWAS:
+    resources:
+        memory = lambda wildcards, attempt: attempt * config["extract_GWAS"]["extract_GWAS_memory"],
+        time = config["extract_GWAS"]["extract_GWAS_time"]
+    input:
+        qtlChunks = getQTLChunks
+        #qtlChunks
+    output:
+        temp(outputFolder/"{gChr}"/"qtl_results_all.txt")
+    priority:10
+    params:
+        idir = str(outputFolder/"{gChr}"/"qtl")+"/",
+        odir = str(outputFolder/"{gChr}")+"/"
+    shell:
+        (limix_path + "post_processing/minimal_postprocess.py "
+            " -id {params.idir} "
+            " -od {params.odir} "
+            "-sfo ")
+
+rule separate_cell_type:
+    resources:
+        memory = lambda wildcards, attempt: attempt * config["separate_cell_type"]["separate_cell_type_memory"],
+        time = config["separate_cell_type"]["separate_cell_type_time"]
+    input:
+        outputFolder/"{gChr}"/"qtl_results_all.txt"
+    output:
+        outputFolder/"{gChr}"/"ct-split-done.txt"
+    params:
+        chr_folder = str(outputFolder/"{gChr}")+"/",
+        qtl_folder = str(outputFolder/"{gChr}/qtl")+"/",
+    shell:
+        """
+        {gen_path} python {cell_type_split_script} {input} {params.chr_folder} {wildcards.gChr}
+        rm -rf {params.qtl_folder}
+        """
+
