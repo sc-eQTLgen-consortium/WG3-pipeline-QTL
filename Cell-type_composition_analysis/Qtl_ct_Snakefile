@@ -96,6 +96,7 @@ rule run_qtl_mapping:
              -cf {params.allFiles[2]} \
              -pf {params.allFiles[1]} \
              -rf {input.kf} \
+             -smf {input.smf} \
              -od {outputFolder}/{wildcards.gChr}/qtl/ \
              -gr {wildcards.chunkChrom}:{wildcards.start}-{wildcards.end} \
              -np {params.np} \
