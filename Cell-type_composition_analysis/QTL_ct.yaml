@@ -1,0 +1,56 @@
+# config for eqtl pipeline
+# use empty string for missing files (eg kinship, randomeff, ...)
+
+#####################################################################################
+###### The following arguments are for indicating file locations on your system #####
+#####################################################################################
+
+image_folder: /groups/umcg-franke-scrna/tmp04/software/ ### The path to the folder within which the simgularity image & "wp3.simg" "limixDec22.simg" is located
+top_dir: /groups/umcg-franke-scrna/tmp04/ ### This folder will be bound to Singularty (needs to be higher than every other data item).
+
+#####################################
+##       input files/folders       ###
+#####################################
+
+WG3_folder: /groups/umcg-franke-scrna/tmp04/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/ ### The path to the outputs from WG3
+out_folder: /groups/umcg-franke-scrna/tmp04/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/ct_comp_gwas/test/output/ ### Path for desired output location
+ct_split_script_path: /groups/umcg-franke-scrna/tmp04/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/ct_comp_gwas/test/ct_split.py ### Path to script: ct_split.py
+comp_script: /groups/umcg-franke-scrna/tmp04/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/ct_comp_gwas/test/cell_type_comp_files.R ### Path to script: cell_type_comp_files.R
+sample_map_file: /groups/umcg-franke-scrna/tmp04/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg3/wg3_wijst2018/input/smf_coeqtl.txt ### Path to file mapping genotype IDs to phenotype IDs
+
+wg2_input_rds_file: /groups/umcg-franke-scrna/tmp04/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg2-cell-type-classification/wg2_ng2018/step4_reduce/reduced_data.RDS ### Path to RDS file generated in WG2
+psam_file: /groups/umcg-franke-scrna/tmp04/projects/sc-eqtlgen-consortium-pipeline/ongoing/wg1-preprocessing/wg1_wijst2018/genotype/unimputed/cytosnp_all_ng2018.psam ### Path to PSAM file used in WG1
+
+################################################################################################################
+####### The following arguments are common parameters that may need to be changed depending on the dataset #####
+################################################################################################################
+
+cell_type_proportions:
+    cell_type_proportions_memory: 16G ### The amount of memory (GB) used per thread for the cell_type_proportions checkpoint
+    cell_type_proportions_time: 01:00:00 ### Amount of time to request for each job
+
+run_qtl_mapping:
+    run_qtl_mapping_memory: 16G ### The amount of memory (GB) used per thread for the run_qtl_mapping step
+    run_qtl_mapping_time: 06:00:00 ### Amount of time to request for each job
+
+extract_GWAS:
+    extract_GWAS_memory: 8G ### The amount of memory (GB) used per thread for the extract_GWAS step
+    extract_GWAS_time: 06:00:00 ### Amount of time to request for each job
+
+compress_qtl:
+    compress_qtl_memory: 8G ### The amount of memory (GB) used per thread for the compress_qtl step
+    compress_qtl_time: 06:00:00 ### Amount of time to request for each job
+
+separate_cell_type:
+    separate_cell_type_memory: 16G ### The amount of memory (GB) used per thread for the separate_cell_type step
+    separate_cell_type_time: 06:00:00 ### Amount of time to request for each job
+
+######################################
+######        Do not change      #####
+######################################
+numberOfPermutations: '0'
+minorAlleleFrequency: '0.01'
+windowSize: '1' #gene + cis window from one side
+hardyWeinbergCutoff: '0.0001'
+compressFiles: true
+
