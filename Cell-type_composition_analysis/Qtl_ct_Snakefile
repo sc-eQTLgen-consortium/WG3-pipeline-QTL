@@ -10,7 +10,7 @@ includeDir = config["top_dir"]
 outputFolder = Path(config["out_folder"])
 scripts_folder = "/tools/WG3-pipeline-QTL/scripts/"
 
-limix_path = "singularity exec --bind "+includeDir+",$TMPDIR "+imageDir+"limixJune24.simg python /groups/umcg-franke-scrna/tmp04/users/umcg-mjbonder/Limix_QTL/"
+limix_path = "singularity exec --bind "+includeDir+",$TMPDIR "+imageDir+"limixJune24.simg python /limix_qtl/Limix_QTL/"
 gen_path = "singularity exec --bind "+includeDir+",$TMPDIR "+imageDir+"limixJune24.simg"
 wp3_path = "singularity exec --bind "+includeDir+",$TMPDIR "+imageDir+"wp3_extended_v2.sif"
 
