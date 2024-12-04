@@ -21,7 +21,7 @@ sampleMappingFile = config["sample_map_file"]
 cell_type_split_script = config["ct_split_script_path"]
 
 ##LD calculation variables
-winFiles = os.listdir(config["WG3_folder"]+'input/WindowsFiles')
+#winFiles = os.listdir(config["WG3_folder"]+'input/WindowsFiles')
 
 topDirInput = config["WG3_folder"]+'input'
 bgen_folder = config["WG3_folder"]+ 'genotype_input'
