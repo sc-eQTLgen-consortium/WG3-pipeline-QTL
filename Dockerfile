@@ -22,9 +22,6 @@ MAINTAINER Marc Jan Bonder <m.j.bonder@umcg.nl>, Martijn Vochteloo <m.vochteloo@
 
 ################## INSTALLATION ######################
 
-ADD . /tmp/repo
-WORKDIR /tmp/repo
-
 ENV PATH=/opt:/usr/games:/opt/conda/envs/py311/bin:/opt/conda/bin:/opt/ldstore_v2.0_x86_64:/opt/plink2:$PATH
 ENV BCFTOOLS_PLUGINS=/opt/bcftools-1.18/plugins
 ENV SHELL=/bin/bash

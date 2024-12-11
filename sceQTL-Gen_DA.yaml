@@ -159,7 +159,7 @@ inputs_extra:
 refs_extra:
   ribosomal_genes: "Ribosomal_genes.txt" ### Relative to 'ref_dir', file containing ribosomal genes
   mitochondrial_genes: "Mitochondrial_genes.txt" ### Relative to 'ref_dir', file containing mitochondrial genes
-  wg2_pairing: "azimuth_l1_l2.csv" ### Relative to 'ref_dir', file with an option cell annotation mapping file
+  wg2_pairing: "azimuth_l1_l2.csv" ### Relative to 'ref_dir', file with an optional cell annotation mapping file
   qc_mad: "qc_mad_final.tab" ### Relative to 'ref_dir', file with the MAD thresholds to use for QC
 
 settings_extra:
