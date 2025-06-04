@@ -8,7 +8,6 @@ args <- commandArgs(trailingOnly = TRUE)
 print("Input arguments: RDS input file, PSAM input file, Output path")
 print(args)
 
-
 wg2_input_rds_file <- args[1] 
 psam_file <- args[2] 
 
@@ -19,6 +18,7 @@ output_dummy_var <- paste0(output_path,"dummy_annotation.txt")
 output_cells_per_donor <- paste0(output_path,"cells_per_donor.txt")
 output_ct_chunk_file <- paste0(output_path,"ct_ChunkingFile.txt")
 
+n_cells_threshold <- 350
 
 #####
 # SETTING UP ANNOTATION FILES
@@ -150,6 +150,11 @@ covariates$sex <- sex
 
 n_cells_df <- covariates
 
+#We will remove donors based on a minimum number of cells
+donors_to_rm <- n_cells_df[n_cells_df$n_cells < n_cells_threshold,]$samples
+
+cat(paste0("Number of donors that pass ",n_cells_threshold," cells filter: ",length(n_cells_df[n_cells_df$n_cells >= n_cells_threshold,]$samples),"\n"))
+
 
 #####
 #L2 CELL-TYPES
@@ -191,7 +196,7 @@ final.df <- rbind(new.df.l0, new.df.l1, new.df.l2)
 ct_l1 <- c("CD4_T","CD8_T","B","Mono","NK","DC")
 for (i in seq(length(ct_l1)-1)){
   for (j in seq(i+1, length(ct_l1))){
-    test <- rbind(final.df, final.df[rownames(final.df)==ct_l1[i]] / (final.df[rownames(final.df)==ct_l1[j]] + final.df[rownames(final.df)==ct_l1[i]]))
+    test <- rbind(final.df, final.df[rownames(final.df)==ct_l1[i],] / (final.df[rownames(final.df)==ct_l1[j],] + final.df[rownames(final.df)==ct_l1[i],]))
     rownames(test) <- c(rownames(final.df), paste0(ct_l1[i],"_vs_",ct_l1[j]))
     final.df <- test
   }
@@ -203,7 +208,7 @@ for (i in seq(length(ct_l1)-1)){
 ct_l2 <- rownames(final.df[rownames(final.df) %in% pairs.df$l2,])
 ct_l2 <- ct_l2[!(ct_l2 %in% dup_ct_to_rm)]
 for (celltype in ct_l2){
-  test <- rbind(final.df, final.df[rownames(final.df)==celltype] / final.df[rownames(final.df)==pairs.df[pairs.df$l2==celltype,]$l1])
+  test <- rbind(final.df, final.df[rownames(final.df)==celltype,] / final.df[rownames(final.df)==pairs.df[pairs.df$l2==celltype,]$l1,])
   rownames(test) <- c(rownames(final.df), paste0(celltype,"_in_",pairs.df[pairs.df$l2==celltype,]$l1))
   final.df <- test
 }
@@ -214,6 +219,11 @@ final.df[final.df==Inf] <- NA
 # Dropping some cell-types as outlined above and in readme
 final.df <- final.df[!(rownames(final.df) %in% other_ct_to_rm),]
 
+# Dropping donors with less than required number of cells
+final.df <- final.df[,!(colnames(final.df) %in% donors_to_rm)]
+
+# Replace NA with 0
+final.df[is.na(final.df)] <- 0
 
 #####
 #CREATE ANNOTATION FILE AND CHUNKING FILE
@@ -231,5 +241,4 @@ write.table(final.df, file=output_ct_prop, sep="\t", quote=F)
 write.table(as.matrix(annot.df), file=output_dummy_var, sep="\t", row.names=FALSE, quote=F)
 write.table(as.matrix(n_cells_df), file=output_cells_per_donor, sep="\t", row.names=FALSE, quote=F)
 write.table(chunk.df, file=output_ct_chunk_file, sep=":", row.names=FALSE, col.names=FALSE, quote=F)
-
 
